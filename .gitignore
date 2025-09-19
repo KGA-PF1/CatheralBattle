@@ -72,3 +72,10 @@ Plugins/**/Intermediate/*
 
 # Cache files for the editor to use
 DerivedDataCache/*
+
+# ============================================================
+# Content: 전체 무시 + TeamShare만 허용
+# ============================================================
+Content/**
+!Content/TeamShare/
+!Content/TeamShare/**
