@@ -13,6 +13,7 @@ class UInputAction;
 struct FInputActionValue;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHpChanged, float, NewHp, float, MaxHp);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnUltGaugeChanged, float, NewGauge, float, MaxGauge);
 
 USTRUCT(BlueprintType)
 struct FPlayerStats //플레이어 스탯 구조체
@@ -28,8 +29,11 @@ struct FPlayerStats //플레이어 스탯 구조체
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float Speed = 400.f;
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats", meta = (ClampMin = "0", ClampMax = "100"))
+	//TODO: 전투 관련(궁극기 게이지, AP) 구현
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float UltGauge = 0.f;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	float MaxUltGauge = 100.f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats", meta = (ClampMin = "0", ClampMax = "6"))
 	float AP = 0.f;
 };
@@ -113,9 +117,11 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SyncMovementSpeed();
 
-	//Hp
+	//Hp - OnDeath?필요
 	UPROPERTY(BlueprintAssignable, Category="Event")
 	FOnHpChanged OnHpChanged;
+	UPROPERTY(BlueprintAssignable, Category="Event")
+	FOnUltGaugeChanged OnUltGaugeChanged;
 
 	UFUNCTION(BlueprintCallable, Category="Stats")
 	float GetHp() { return Stats.Hp; }
@@ -125,8 +131,31 @@ public:
 	float GetHpPercent() { return Stats.MaxHp > 0 ? Stats.Hp / Stats.MaxHp : 0.f; }
 	UFUNCTION(BlueprintCallable, Category="Stats")
 	bool IsDead() const { return Stats.Hp <= 0; }
+	//TODO: ApplyDamage 필요하면 변경
 	UFUNCTION(BlueprintCallable, Category="Stats")
-	void TakeDamage(int32 Damage);
+	void TakeDamage(float Damage);
 	UFUNCTION(BlueprintCallable, Category="Stats")
 	void Respawn();
+	
+	//UltGauge
+	//TODO: 몬스터 죽을 때 AddUltGauge하게끔
+	UFUNCTION(BlueprintCallable, Category="Stats")
+	void AddUltGauge(float Amount);
+
+
+	//Combat 관련
+	//몽타주
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Combat|Montage")
+	UAnimMontage* Montage_BaseAttack;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Combat|Montage")
+	UAnimMontage* Montage_Skill1;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Combat|Montage")
+	UAnimMontage* Montage_Skill2;
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Combat|Montage")
+	UAnimMontage* Montage_Ult;
+
+	//스킬 호출
+	//UFUNCTION(BlueprintCallable, Category="Combat|Skill")
+	//bool TryUseBaseAttack(AActor* Target);
+
 };

@@ -157,7 +157,7 @@ void APlayerCharacter::SyncMovementSpeed()
 	}
 }
 
-void APlayerCharacter::TakeDamage(int32 Damage)
+void APlayerCharacter::TakeDamage(float Damage)
 {
 	if (Damage <= 0 || IsDead()) return;
 	const int32 OldHp = Stats.Hp;
@@ -176,3 +176,10 @@ void APlayerCharacter::Respawn()
 		OnHpChanged.Broadcast(Stats.Hp, Stats.MaxHp);
 	}
 }
+
+void APlayerCharacter::AddUltGauge(float Amount)
+{
+	Stats.UltGauge = FMath::Clamp(Stats.UltGauge + Amount, 0.f, Stats.MaxUltGauge);
+	OnUltGaugeChanged.Broadcast(Stats.UltGauge, Stats.MaxUltGauge);
+}
+
