@@ -63,6 +63,8 @@ void APlayerCharacter::BeginPlay()
 	Super::BeginPlay();
 
 	SyncMovementSpeed();
+	OnHpChanged.Broadcast(Stats.Hp, Stats.MaxHp);
+
 	//Add Input Mapping Context
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
 	{
@@ -152,5 +154,25 @@ void APlayerCharacter::SyncMovementSpeed()
 		const float Base = Stats.Speed;
 		const float Desired = bIsSprinting ? Base * SprintMultiplier : Base;
 		Move->MaxWalkSpeed = Desired;
+	}
+}
+
+void APlayerCharacter::TakeDamage(int32 Damage)
+{
+	if (Damage <= 0 || IsDead()) return;
+	const int32 OldHp = Stats.Hp;
+	Stats.Hp = FMath::Clamp(Stats.Hp - Damage, 0, Stats.MaxHp);
+	if (Stats.Hp != OldHp)
+	{
+		OnHpChanged.Broadcast(Stats.Hp, Stats.MaxHp);
+	}
+}
+
+void APlayerCharacter::Respawn()
+{
+	if (Stats.Hp != Stats.MaxHp)
+	{
+		Stats.Hp = Stats.MaxHp;
+		OnHpChanged.Broadcast(Stats.Hp, Stats.MaxHp);
 	}
 }

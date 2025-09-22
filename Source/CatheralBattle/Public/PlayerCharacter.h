@@ -12,13 +12,15 @@ class UInputMappingContext;
 class UInputAction;
 struct FInputActionValue;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHpChanged, float, NewHp, float, MaxHp);
+
 USTRUCT(BlueprintType)
 struct FPlayerStats //플레이어 스탯 구조체
 { 
 	GENERATED_BODY();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	float Hp = 100.f; //컴포넌트 사용할지?
+	float Hp = 100.f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float MaxHp = 100.f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
@@ -99,9 +101,9 @@ public:
 	FPlayerStats Stats;
 
 	//Sprint
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Stats|Config")
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Stats|Sprint")
 	float SprintMultiplier = 1.5f;
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stats|Config")
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stats|Sprint")
 	bool bIsSprinting = false;
 
 	UFUNCTION(BlueprintCallable)
@@ -111,4 +113,20 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SyncMovementSpeed();
 
+	//Hp
+	UPROPERTY(BlueprintAssignable, Category="Event")
+	FOnHpChanged OnHpChanged;
+
+	UFUNCTION(BlueprintCallable, Category="Stats")
+	float GetHp() { return Stats.Hp; }
+	UFUNCTION(BlueprintCallable, Category="Stats")
+	float GetMaxHp() { return Stats.MaxHp; }
+	UFUNCTION(BlueprintCallable, Category="Stats")
+	float GetHpPercent() { return Stats.MaxHp > 0 ? Stats.Hp / Stats.MaxHp : 0.f; }
+	UFUNCTION(BlueprintCallable, Category="Stats")
+	bool IsDead() const { return Stats.Hp <= 0; }
+	UFUNCTION(BlueprintCallable, Category="Stats")
+	void TakeDamage(int32 Damage);
+	UFUNCTION(BlueprintCallable, Category="Stats")
+	void Respawn();
 };
