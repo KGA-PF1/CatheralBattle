@@ -183,3 +183,33 @@ void APlayerCharacter::AddUltGauge(float Amount)
 	OnUltGaugeChanged.Broadcast(Stats.UltGauge, Stats.MaxUltGauge);
 }
 
+bool APlayerCharacter::TryUseSkill(ESkillInput InputKind)
+{
+	return false;
+}
+
+void APlayerCharacter::AN_WeaponHitbox_On()
+{
+}
+
+void APlayerCharacter::AN_WeaponHitbox_Off()
+{
+}
+
+bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput InputKind)
+{
+	return false;
+}
+
+void APlayerCharacter::UpdateCooldowns(float DeltaSeconds)
+{
+}
+
+void APlayerCharacter::PlaySkillMontage(const FSkillSpec& Spec)
+{
+}
+
+void APlayerCharacter::OnWeaponBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& Sweep)
+{
+}
+
