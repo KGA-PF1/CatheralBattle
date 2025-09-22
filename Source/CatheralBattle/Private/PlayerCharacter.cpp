@@ -1,6 +1,7 @@
-// Copyright Epic Games, Inc. All Rights Reserved.
+// Fill out your copyright notice in the Description page of Project Settings.
 
-#include "CatheralBattleCharacter.h"
+
+#include "PlayerCharacter.h"
 #include "Engine/LocalPlayer.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -11,16 +12,18 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 
-DEFINE_LOG_CATEGORY(LogTemplateCharacter);
+// Called every frame
+void APlayerCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
 
-//////////////////////////////////////////////////////////////////////////
-// ACatheralBattleCharacter
+}
 
-ACatheralBattleCharacter::ACatheralBattleCharacter()
+APlayerCharacter::APlayerCharacter()
 {
 	// Set size for collision capsule
 	GetCapsuleComponent()->InitCapsuleSize(42.f, 96.0f);
-		
+
 	// Don't rotate when the controller rotates. Let that just affect the camera.
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
@@ -54,10 +57,13 @@ ACatheralBattleCharacter::ACatheralBattleCharacter()
 	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
 }
 
-void ACatheralBattleCharacter::BeginPlay()
+void APlayerCharacter::BeginPlay()
 {
 	// Call the base class  
 	Super::BeginPlay();
+
+	SyncMovementSpeed();
+	OnHpChanged.Broadcast(Stats.Hp, Stats.MaxHp);
 
 	//Add Input Mapping Context
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
@@ -72,28 +78,28 @@ void ACatheralBattleCharacter::BeginPlay()
 //////////////////////////////////////////////////////////////////////////
 // Input
 
-void ACatheralBattleCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
+void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
 	// Set up action bindings
 	if (UEnhancedInputComponent* EnhancedInputComponent = Cast<UEnhancedInputComponent>(PlayerInputComponent)) {
-		
+
 		// Jumping
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Started, this, &ACharacter::Jump);
 		EnhancedInputComponent->BindAction(JumpAction, ETriggerEvent::Completed, this, &ACharacter::StopJumping);
 
 		// Moving
-		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &ACatheralBattleCharacter::Move);
+		EnhancedInputComponent->BindAction(MoveAction, ETriggerEvent::Triggered, this, &APlayerCharacter::Move);
 
 		// Looking
-		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &ACatheralBattleCharacter::Look);
-	}
-	else
-	{
-		UE_LOG(LogTemplateCharacter, Error, TEXT("'%s' Failed to find an Enhanced Input component! This template is built to use the Enhanced Input system. If you intend to use the legacy system, then you will need to update this C++ file."), *GetNameSafe(this));
+		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &APlayerCharacter::Look);
+
+		//Sprint
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &APlayerCharacter::StartSprint);
+		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &APlayerCharacter::StopSprint);
 	}
 }
 
-void ACatheralBattleCharacter::Move(const FInputActionValue& Value)
+void APlayerCharacter::Move(const FInputActionValue& Value)
 {
 	// input is a Vector2D
 	FVector2D MovementVector = Value.Get<FVector2D>();
@@ -106,7 +112,7 @@ void ACatheralBattleCharacter::Move(const FInputActionValue& Value)
 
 		// get forward vector
 		const FVector ForwardDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::X);
-	
+
 		// get right vector 
 		const FVector RightDirection = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 
@@ -116,7 +122,7 @@ void ACatheralBattleCharacter::Move(const FInputActionValue& Value)
 	}
 }
 
-void ACatheralBattleCharacter::Look(const FInputActionValue& Value)
+void APlayerCharacter::Look(const FInputActionValue& Value)
 {
 	// input is a Vector2D
 	FVector2D LookAxisVector = Value.Get<FVector2D>();
@@ -128,3 +134,52 @@ void ACatheralBattleCharacter::Look(const FInputActionValue& Value)
 		AddControllerPitchInput(LookAxisVector.Y);
 	}
 }
+
+void APlayerCharacter::StartSprint()
+{
+	bIsSprinting = true;
+	SyncMovementSpeed();
+}
+
+void APlayerCharacter::StopSprint()
+{
+	bIsSprinting = false;
+	SyncMovementSpeed();
+}
+
+void APlayerCharacter::SyncMovementSpeed()
+{
+	if (UCharacterMovementComponent* Move = GetCharacterMovement())
+	{
+		const float Base = Stats.Speed;
+		const float Desired = bIsSprinting ? Base * SprintMultiplier : Base;
+		Move->MaxWalkSpeed = Desired;
+	}
+}
+
+void APlayerCharacter::TakeDamage(float Damage)
+{
+	if (Damage <= 0 || IsDead()) return;
+	const int32 OldHp = Stats.Hp;
+	Stats.Hp = FMath::Clamp(Stats.Hp - Damage, 0, Stats.MaxHp);
+	if (Stats.Hp != OldHp)
+	{
+		OnHpChanged.Broadcast(Stats.Hp, Stats.MaxHp);
+	}
+}
+
+void APlayerCharacter::Respawn()
+{
+	if (Stats.Hp != Stats.MaxHp)
+	{
+		Stats.Hp = Stats.MaxHp;
+		OnHpChanged.Broadcast(Stats.Hp, Stats.MaxHp);
+	}
+}
+
+void APlayerCharacter::AddUltGauge(float Amount)
+{
+	Stats.UltGauge = FMath::Clamp(Stats.UltGauge + Amount, 0.f, Stats.MaxUltGauge);
+	OnUltGaugeChanged.Broadcast(Stats.UltGauge, Stats.MaxUltGauge);
+}
+
