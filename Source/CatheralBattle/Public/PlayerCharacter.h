@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+ï»¿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -18,7 +18,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHpChanged, float, NewHp, float, 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnUltGaugeChanged, float, NewGauge, float, MaxGauge);
 
 USTRUCT(BlueprintType)
-struct FPlayerStats //ÇÃ·¹ÀÌ¾î ½ºÅÈ ±¸Á¶Ã¼
+struct FPlayerStats //í”Œë ˆì´ì–´ ìŠ¤íƒ¯ êµ¬ì¡°ì²´
 { 
 	GENERATED_BODY();
 
@@ -31,7 +31,7 @@ struct FPlayerStats //ÇÃ·¹ÀÌ¾î ½ºÅÈ ±¸Á¶Ã¼
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float Speed = 400.f;
 
-	//TODO: ÀüÅõ °ü·Ã(±Ã±Ø±â °ÔÀÌÁö, AP) ±¸Çö
+	//TODO: ì „íˆ¬ ê´€ë ¨(ê¶ê·¹ê¸° ê²Œì´ì§€, AP) êµ¬í˜„
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float UltGauge = 0.f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
@@ -40,7 +40,7 @@ struct FPlayerStats //ÇÃ·¹ÀÌ¾î ½ºÅÈ ±¸Á¶Ã¼
 	float AP = 0.f;
 };
 
-//½ºÅ³ ÀÔ·Â
+//ìŠ¤í‚¬ ì…ë ¥
 UENUM(BlueprintType)
 enum class ESkillInput : uint8
 {
@@ -58,11 +58,11 @@ struct FSkillSpec
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Combat|Skill")
 	UAnimMontage* Montage = nullptr;
 
-	//¼½¼Ç ºĞ±â ÇÊ¿äÇÏ¸é ÁÖ¼® ÇØÁ¦
+	//ì„¹ì…˜ ë¶„ê¸° í•„ìš”í•˜ë©´ ì£¼ì„ í•´ì œ
 	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Skill")
 	//FName MontageSection;
 
-	//ÀüÅõ ¶§ ¾²ÀÏ °ª
+	//ì „íˆ¬ ë•Œ ì“°ì¼ ê°’
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Combat|Skill")
 	float DamageMultiplier = 1.f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Combat|Skill")
@@ -70,17 +70,17 @@ struct FSkillSpec
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Combat|Skill")
 	int32 APCost = 0;
 
-	//¹«±â È÷Æ®¹Ú½º »ç¿ëÇÒ ¶§ (AnimNotifyState¿¡¼­ On, Off)
+	//ë¬´ê¸° íˆíŠ¸ë°•ìŠ¤ ì‚¬ìš©í•  ë•Œ (AnimNotifyStateì—ì„œ On, Off)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat|HitBox")
 	bool bUseWeaponHitBox = true;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat|HitBox", meta=(EditCondition = "bUseWeaponHitBox"))
-	FVector BoxExtent = FVector(6, 24, 6);
+	FVector BoxExtent = FVector(10, 10, 80);
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat|HitBox", meta=(EditCondition = "bUseWeaponHitBox"))
 	FVector BoxRelLocation = FVector::ZeroVector;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat|HitBox", meta=(EditCondition = "bUseWeaponHitBox"))
 	FRotator BoxRelRotation = FRotator::ZeroRotator;
 
-	//Æ®·¹ÀÌ½º ¹æ½Ä(±¤¿ª µî) »ç¿ëÇÏ·Á¸é ÁÖ¼® ÇØÁ¦
+	//íŠ¸ë ˆì´ìŠ¤ ë°©ì‹(ê´‘ì—­ ë“±) ì‚¬ìš©í•˜ë ¤ë©´ ì£¼ì„ í•´ì œ
 	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Trace")
 	//bool bUseTrace = false;
 
@@ -91,7 +91,7 @@ struct FSkillSpec
 	//float TraceRange = 300.f;
 };
 
-//TODO: Weapon ¼ÒÄÏ¿¡ Äİ¸®Àü ¹Ú½º ÇÒ´ç
+//TODO: Weapon ì†Œì¼“ì— ì½œë¦¬ì „ ë°•ìŠ¤ í• ë‹¹
 
 UCLASS()
 class CATHERALBATTLE_API APlayerCharacter : public ACharacter
@@ -99,22 +99,16 @@ class CATHERALBATTLE_API APlayerCharacter : public ACharacter
 	GENERATED_BODY()
 
 public:
-	// Sets default values for this character's properties
 	APlayerCharacter();
 
 protected:
-	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
 public:	
-	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 
-	// Called to bind functionality to input
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-
-	/** Camera boom positioning the camera behind the character */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	USpringArmComponent* CameraBoom;
 
@@ -140,6 +134,18 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* SprintAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* AttackAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* SkillQAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* SkillEAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* UltimateAction;
 
 protected:
 
@@ -172,7 +178,7 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SyncMovementSpeed();
 
-	//Hp - OnDeath?ÇÊ¿ä
+	//Hp - OnDeath?í•„ìš”
 	UPROPERTY(BlueprintAssignable, Category="Event")
 	FOnHpChanged OnHpChanged;
 	UPROPERTY(BlueprintAssignable, Category="Event")
@@ -186,14 +192,14 @@ public:
 	float GetHpPercent() { return Stats.MaxHp > 0 ? Stats.Hp / Stats.MaxHp : 0.f; }
 	UFUNCTION(BlueprintCallable, Category="Stats")
 	bool IsDead() const { return Stats.Hp <= 0; }
-	//TODO: ApplyDamage ÇÊ¿äÇÏ¸é º¯°æ
+	//TODO: ApplyDamage í•„ìš”í•˜ë©´ ë³€ê²½
 	UFUNCTION(BlueprintCallable, Category="Stats")
 	void TakeDamage(float Damage);
 	UFUNCTION(BlueprintCallable, Category="Stats")
 	void Respawn();
 	
 	//UltGauge
-	//TODO: ¸ó½ºÅÍ Á×À» ¶§ AddUltGaugeÇÏ°Ô²û
+	//TODO: ëª¬ìŠ¤í„° ì£½ì„ ë•Œ AddUltGaugeí•˜ê²Œë”
 	UFUNCTION(BlueprintCallable, Category="Stats")
 	void AddUltGauge(float Amount);
 
@@ -212,35 +218,42 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Skill")
 	bool TryUseUlt() { return TryUseSkill(ESkillInput::Ult_R); }
 
+	//Input ë°”ì¸ë”©
+	UFUNCTION() void Input_Attack();
+	UFUNCTION() void Input_SkillQ();
+	UFUNCTION() void Input_SkillE();
+	UFUNCTION() void Input_Ult();
+
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat")
 	bool bTurnBased = false;
 
-	//¹«±â È÷Æ®¹Ú½º
+	//ë¬´ê¸° íˆíŠ¸ë°•ìŠ¤
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Weapon")
 	UBoxComponent* WeaponHitBox;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Combat|Weapon")
-	FName WeaponSocketName = TEXT("hand_r_socket"); //TODO: ¼ÒÄÏ ÀÌ¸§ ¾Ë¾Æ¿À±â
+	FName WeaponSocketName = TEXT("hand_r_socket"); //TODO: ì†Œì¼“ ì´ë¦„ ì•Œì•„ì˜¤ê¸°
 
-	//AnimNotify¿¡¼­ ¾µ On, Off
+	//AnimNotifyì—ì„œ ì“¸ On, Off
 	UFUNCTION(BlueprintCallable, Category="Combat|Notify")
 	void AN_WeaponHitbox_On();
 	UFUNCTION(BlueprintCallable, Category="Combat|Notify")
 	void AN_WeaponHitbox_Off();
 
 protected:
-	//ÀÔ·Â -> ½ºÅ³½ºÆå Á¶È¸ -> (Äğ/AP Ã¼Å©) -> ¸ùÅ¸ÁÖ Àç»ı
+	//ì…ë ¥ -> ìŠ¤í‚¬ìŠ¤í™ ì¡°íšŒ -> (ì¿¨/AP ì²´í¬) -> ëª½íƒ€ì£¼ ì¬ìƒ
 	bool InternalUseSkill(const FSkillSpec& Spec, ESkillInput InputKind);
 
-	//°£´Ü ÄğÅ¸ÀÓ Å¸ÀÌ¸Ó
+	//ê°„ë‹¨ ì¿¨íƒ€ì„ íƒ€ì´ë¨¸
 	TMap<ESkillInput, float> CooldownTimers;
 
-	//Äğ´Ù¿î °¨¼Ò
+	//ì¿¨ë‹¤ìš´ ê°ì†Œ
 	void UpdateCooldowns(float DeltaSeconds);
 
-	//¸ùÅ¸ÁÖ Àç»ı À¯Æ¿
+	//ëª½íƒ€ì£¼ ì¬ìƒ ìœ í‹¸
 	void PlaySkillMontage(const FSkillSpec& Spec);
 
-	//Overlap¿ë
+	//Overlapìš©
 	UFUNCTION()
 	void OnWeaponBeginOverlap(
 		UPrimitiveComponent* OverlappedComp,
