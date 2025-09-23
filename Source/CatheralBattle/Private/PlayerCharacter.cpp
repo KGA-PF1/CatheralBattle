@@ -120,7 +120,7 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &APlayerCharacter::StopSprint);
 
 		//공격 관련
-		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_Attack);
+		//EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_Attack);
 		EnhancedInputComponent->BindAction(SkillQAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_SkillQ);
 		EnhancedInputComponent->BindAction(SkillEAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_SkillE);
 		EnhancedInputComponent->BindAction(UltimateAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_Ult);
@@ -222,7 +222,7 @@ bool APlayerCharacter::TryUseSkill(ESkillInput InputKind)
 
 void APlayerCharacter::Input_Attack()
 {
-	TryUseBase();
+	TryUseAttack();
 }
 
 void APlayerCharacter::Input_SkillQ()
@@ -270,7 +270,7 @@ bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput Inpu
 	//간단 쿨타임 체크
 	if (float* Timer = CooldownTimers.Find(InputKind))
 	{
-		if (*Timer > 0.f) return false;
+		if (*Timer > 0.f) return false;                                                                                         
 	}
 
 	//턴제: AP 체크
@@ -289,8 +289,27 @@ bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput Inpu
 	}
 
 	//몽타주 재생
-	PlaySkillMontage(Spec);
+	if (InputKind == ESkillInput::Skill_Q)
+	{
+		Jump();
+		LaunchCharacter(FVector(0.f, 0.f, 700.f), true, true);
 
+		PlaySkillMontage(Spec);
+		GetWorldTimerManager().ClearTimer(MovementLockStartHandle);
+		GetWorldTimerManager().SetTimer(
+			MovementLockStartHandle,
+			this,
+		//	&APlayerCharacter::LockMoveInputDelayed,
+			&APlayerCharacter::LockMoveInput,
+			1.0f,
+			false
+		);
+		//LockMoveInput();
+	}
+	else
+	{ 
+		PlaySkillMontage(Spec);
+	}
 	//쿨다운 스타트
 	if (float* Timer = CooldownTimers.Find(InputKind))
 	{
@@ -317,6 +336,17 @@ void APlayerCharacter::PlaySkillMontage(const FSkillSpec& Spec)
 	if (UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
 	{
 		float Len = Anim->Montage_Play(Spec.Montage);
+		if (Len > 0.f)
+		{
+			//잠금 해제 이벤트 바인딩(끝, 중단)
+			FOnMontageBlendingOutStarted BlendOut;
+			BlendOut.BindUObject(this, &APlayerCharacter::OnMontageBlendOut);
+			Anim->Montage_SetBlendingOutDelegate(BlendOut, Spec.Montage);
+
+			FOnMontageEnded Ended;
+			Ended.BindUObject(this, &APlayerCharacter::OnMontageEnded);
+			Anim->Montage_SetEndDelegate(Ended, Spec.Montage);
+		}
 		//if (Len > 0.f && Spec.MontageSection != NAME_None)
 		//{
 		//	Anim->Montage_JumpToSection(Spec.MontageSection, Spec.Montage);
@@ -328,3 +358,37 @@ void APlayerCharacter::OnWeaponBeginOverlap(UPrimitiveComponent* OverlappedComp,
 {
 }
 
+void APlayerCharacter::LockMoveInputDelayed()
+{
+}
+
+void APlayerCharacter::OnMontageBlendOut(UAnimMontage* Montage, bool bInterrupted)
+{
+	UnLockMoveInput();
+}
+void APlayerCharacter::OnMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	UnLockMoveInput();
+}
+
+void APlayerCharacter::LockMoveInput()
+{
+	if (bMoveInputLocked) return;
+
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		PC->SetIgnoreMoveInput(true);
+	}
+	bMoveInputLocked = true;
+}
+
+void APlayerCharacter::UnLockMoveInput()
+{
+	if (!bMoveInputLocked) return;
+
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		PC->SetIgnoreMoveInput(false);
+	}
+	bMoveInputLocked = false;
+}

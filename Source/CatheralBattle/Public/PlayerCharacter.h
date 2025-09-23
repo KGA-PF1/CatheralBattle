@@ -210,7 +210,7 @@ public:
 	bool TryUseSkill(ESkillInput InputKind);
 
 	UFUNCTION(BlueprintCallable, Category="Skill")
-	bool TryUseBase() { return TryUseSkill(ESkillInput::Attack); }
+	bool TryUseAttack() { return TryUseSkill(ESkillInput::Attack); }
 	UFUNCTION(BlueprintCallable, Category="Skill")
 	bool TryUseSkillQ() { return TryUseSkill(ESkillInput::Skill_Q); }
 	UFUNCTION(BlueprintCallable, Category="Skill")
@@ -262,4 +262,19 @@ protected:
 		int32 OtherBodyIndex,
 		bool bFromSweep,
 		const FHitResult& Sweep);
+
+	//스킬 Q 입력막기
+private:
+	FTimerHandle MovementLockStartHandle;
+	UPROPERTY() UAnimMontage* ActiveSkillMontage = nullptr;
+	void LockMoveInputDelayed();
+
+	bool bMoveInputLocked = false;
+
+	UFUNCTION()
+	void OnMontageBlendOut(UAnimMontage* Montage, bool bInterrupted);
+	UFUNCTION()
+	void OnMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+	void LockMoveInput();
+	void UnLockMoveInput();
 };
