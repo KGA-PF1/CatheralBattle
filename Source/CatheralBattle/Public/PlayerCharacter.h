@@ -57,6 +57,8 @@ struct FSkillSpec
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Combat|Skill")
 	UAnimMontage* Montage = nullptr;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Combat|Skill")
+	TArray<UAnimMontage*> ComboMontages;
 
 	//섹션 분기 필요하면 주석 해제
 	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Skill")
@@ -224,7 +226,6 @@ public:
 	UFUNCTION() void Input_SkillE();
 	UFUNCTION() void Input_Ult();
 
-
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category="Combat")
 	bool bTurnBased = false;
 
@@ -239,6 +240,21 @@ public:
 	void AN_WeaponHitbox_On();
 	UFUNCTION(BlueprintCallable, Category="Combat|Notify")
 	void AN_WeaponHitbox_Off();
+
+	//AnimNotify에서 쓰는 Attack 3타
+	int32 AttackCount = 0;
+	bool bSaveAttack = false;
+	bool bIsAttacking = false;
+
+	UFUNCTION(BlueprintCallable, Category="Combat|Attack")
+	void ComboAttackSave();
+	UFUNCTION(BlueprintCallable, Category="Combat|Attack")
+	void ResetCombo();
+	UFUNCTION(BlueprintCallable, Category="Combat|Attack")
+	void SaveAttack();
+
+	
+
 
 protected:
 	//입력 -> 스킬스펙 조회 -> (쿨/AP 체크) -> 몽타주 재생
