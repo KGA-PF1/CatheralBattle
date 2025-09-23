@@ -36,7 +36,24 @@ public:
 
         UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
         int32 Speed = 300;
-    
+
+        // 공격 범위 및 공격력 변수 추가
+        UPROPERTY(EditAnywhere, Category = "Combat")
+        float AttackRange = 150.f;
+
+        // 공격 쿨타임 변수 (초 단위)
+        UPROPERTY(EditAnywhere, Category = "Combat")
+        float AttackCooldown = 5.f;
+
+        bool bCanAttack = true;
+
+        // 공격 함수 선언
+      
+
+        // 공격 쿨타임 리셋 함수
+        void ResetAttackCooldown();
+        FTimerHandle AttackTimerHandle;
+
         // ==== 이벤트 ====
         // 몬스터가 죽을 때 알림
         UPROPERTY(BlueprintAssignable, Category = "Monster")
@@ -45,10 +62,11 @@ public:
         // ==== 함수 ====
         UFUNCTION(BlueprintCallable, Category = "Monster")
         void TakeDamageCustom(int32 DamageAmount);
-    
+      
     protected:
         void OnDeath();
         void DestroyMonster();
-    
+        UFUNCTION(BlueprintCallable, Category = "Monster")
+        void PerformAttack();
         FTimerHandle DeathTimerHandle;
 };
