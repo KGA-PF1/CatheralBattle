@@ -6,6 +6,7 @@
 #include "GameFramework/Character.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "PlayerCharacter.h"
 
 // Sets default values
 AMonster::AMonster()
@@ -67,7 +68,7 @@ void AMonster::PerformAttack()
 	if (!bCanAttack)
 		return;
 
-	APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(GetWorld(), 0);
+	APlayerCharacter* PlayerPawn = Cast<APlayerCharacter>(UGameplayStatics::GetPlayerPawn(GetWorld(), 0));
 	if (!PlayerPawn)
 		return;
 
@@ -77,7 +78,8 @@ void AMonster::PerformAttack()
 	if (Distance <= AttackRange)
 	{
 		// 데미지 적용 (플레이어에 데미지 전달)
-		UGameplayStatics::ApplyDamage(PlayerPawn, AttackPoint, GetController(), this, nullptr);
+		////////////////UGameplayStatics::ApplyDamage(PlayerPawn, AttackPoint, GetController(), this, nullptr);
+		PlayerPawn->TakeDamage(AttackPoint);
 
 		// 공격 쿨타임 시작
 		bCanAttack = false;
