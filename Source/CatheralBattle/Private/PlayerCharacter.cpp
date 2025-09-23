@@ -120,7 +120,7 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &APlayerCharacter::StopSprint);
 
 		//공격 관련
-		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_Attack);
+		//EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_Attack);
 		EnhancedInputComponent->BindAction(SkillQAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_SkillQ);
 		EnhancedInputComponent->BindAction(SkillEAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_SkillE);
 		EnhancedInputComponent->BindAction(UltimateAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_Ult);
@@ -256,63 +256,10 @@ void APlayerCharacter::AN_WeaponHitbox_Off()
 	}
 }
 
-void APlayerCharacter::ComboAttackSave()
-{
-	//공격 중이라면 입력 저장만
-	if (bIsAttacking)
-	{
-		bSaveAttack = true;
-		return;
-	}
-
-	//SkillTable에서 Attack가져옴
-	if (FSkillSpec* Spec = SkillTable.Find(ESkillInput::Attack))
-	{
-		if (AttackCount < Spec->ComboMontages.Num())
-		{
-			bIsAttacking = true;
-			bSaveAttack = false;
-
-			//무기 히트박스
-			if (WeaponHitBox && Spec->bUseWeaponHitBox)
-			{
-				WeaponHitBox->SetBoxExtent(Spec->BoxExtent);
-				WeaponHitBox->SetRelativeLocation(Spec->BoxRelLocation);
-				WeaponHitBox->SetRelativeRotation(Spec->BoxRelRotation);
-
-
-			}
-			//해당 타수의 몽타주 재생
-			UAnimMontage* MontageToPlay = Spec->ComboMontages[AttackCount];
-			if (MontageToPlay && GetMesh()->GetAnimInstance())
-			{
-				GetMesh()->GetAnimInstance()->Montage_Play(MontageToPlay);
-			}
-			AttackCount++;
-		}
-	}
-}
-
-void APlayerCharacter::ResetCombo()
-{
-	AttackCount = 0;
-	bSaveAttack = false;
-	bIsAttacking = false;
-}
-
-void APlayerCharacter::SaveAttack()
-{
-	if (bSaveAttack)
-	{
-		bIsAttacking = false;
-		ComboAttackSave();
-	}
-}
-
 bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput InputKind)
 {
 	//몽타주 없는 스킬 무시
-	if (!Spec.Montage && Spec.ComboMontages.Num() == 0) return false;
+	if (!Spec.Montage) return false;
 
 	//중복 시전 방지
 	if (UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
@@ -358,10 +305,6 @@ bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput Inpu
 			false
 		);
 		//LockMoveInput();
-	}
-	else if (InputKind == ESkillInput::Attack)
-	{
-		ComboAttackSave();
 	}
 	else
 	{ 
