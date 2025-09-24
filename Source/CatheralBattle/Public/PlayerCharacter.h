@@ -14,8 +14,20 @@ class UAnimMontage;
 class UBoxComponent;
 struct FInputActionValue;
 
+//스킬 입력
+UENUM(BlueprintType)
+enum class ESkillInput : uint8
+{
+	Attack UMETA(DisplayName = "Attack"),
+	Skill_Q UMETA(DisplayName = "Skill_Q"),
+	Skill_E UMETA(DisplayName = "Skill_E"),
+	Ult_R UMETA(DisplayName = "Ult_R")
+};
+
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHpChanged, float, NewHp, float, MaxHp);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnUltGaugeChanged, float, NewGauge, float, MaxGauge);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnCooldownUpdated, ESkillInput, Input, float, Remaining, float, Duration);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCooldownEnded, ESkillInput, input);
 
 USTRUCT(BlueprintType)
 struct FPlayerStats //플레이어 스탯 구조체
@@ -40,15 +52,6 @@ struct FPlayerStats //플레이어 스탯 구조체
 	float AP = 0.f;
 };
 
-//스킬 입력
-UENUM(BlueprintType)
-enum class ESkillInput : uint8
-{
-	Attack UMETA(DisplayName = "Attack"),
-	Skill_Q UMETA(DisplayName = "Skill_Q"),
-	Skill_E UMETA(DisplayName = "Skill_E"),
-	Ult_R UMETA(DisplayName = "Ult_R")
-};
 
 USTRUCT(BlueprintType)
 struct FSkillSpec
@@ -178,18 +181,47 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SyncMovementSpeed();
 
+
+	//Event 변수들
+#pragma region Event
 	//Hp - OnDeath?필요
 	UPROPERTY(BlueprintAssignable, Category = "Event")
 	FOnHpChanged OnHpChanged;
 	UPROPERTY(BlueprintAssignable, Category = "Event")
 	FOnUltGaugeChanged OnUltGaugeChanged;
+	UPROPERTY(BlueprintAssignable, Category = "Event|Cooldown")
+	FOnCooldownUpdated OnCooldownUpdated;
+	UPROPERTY(BlueprintAssignable, Category = "Event|Cooldown")
+	FOnCooldownEnded OnCooldownEnded;
+#pragma endregion
 
+	//UI를 위한 Getter
+#pragma region UI Binding Function
+	//HP
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	float GetHp() { return Stats.Hp; }
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	float GetMaxHp() { return Stats.MaxHp; }
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	float GetHpPercent() { return Stats.MaxHp > 0 ? Stats.Hp / Stats.MaxHp : 0.f; }
+	
+	//궁극기
+	UFUNCTION(BlueprintCallable, Category = "Stats")
+	float GetUltGauge() { return Stats.UltGauge; }
+	UFUNCTION(BlueprintCallable, Category = "Stats")
+	float GetMaxUltGauge() { return Stats.MaxUltGauge; }
+	UFUNCTION(BlueprintCallable, Category = "Stats")
+	float GetUltGaugePercent() { return Stats.MaxUltGauge > 0 ? Stats.UltGauge / Stats.MaxUltGauge : 0.f; }
+
+	//쿨타임
+	UFUNCTION(BlueprintPure, Category="Skill|Cooldown")
+	float GetCooldownRemaining(ESkillInput Input) const;
+	UFUNCTION(BlueprintPure, Category="Skill|Cooldown")
+	float GetCooldownDuration(ESkillInput Input) const;
+	UFUNCTION(BlueprintPure, Category="Skill|Cooldown")
+	float GetCooldownPercent(ESkillInput Input) const;
+#pragma endregion
+	
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	bool IsDead() const { return Stats.Hp <= 0; }
 	//TODO: ApplyDamage 필요하면 변경
@@ -197,7 +229,6 @@ public:
 	void TakeDamage(float Damage);
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	void Respawn();
-
 	//UltGauge
 	//TODO: 몬스터 죽을 때 AddUltGauge하게끔
 	UFUNCTION(BlueprintCallable, Category = "Stats")
@@ -206,9 +237,11 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Skill|Table")
 	TMap<ESkillInput, FSkillSpec> SkillTable;
 
+
+	//TODO: UltGauge가 MaxUltGauge이여야 궁극기 하도록
+	//TODO: UltGauge 0으로 만들기
 	UFUNCTION(BlueprintCallable, Category = "Skill")
 	bool TryUseSkill(ESkillInput InputKind);
-
 	UFUNCTION(BlueprintCallable, Category = "Skill")
 	bool TryUseAttack() { return TryUseSkill(ESkillInput::Attack); }
 	UFUNCTION(BlueprintCallable, Category = "Skill")
@@ -230,22 +263,19 @@ public:
 
 	//무기 히트박스
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|Weapon")
-	UBoxComponent* WeaponHitBox;
+	UBoxComponent* Sword;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|Weapon")
-	FName WeaponSocketName = TEXT("hand_r_socket"); //TODO: 소켓 이름 알아오기
+	FName WeaponSocketName = TEXT("sword_top"); //TODO: 소켓 이름 알아오기
 
 	//AnimNotify에서 쓸 On, Off
 	UFUNCTION(BlueprintCallable, Category = "Combat|Notify")
-	void AN_WeaponHitbox_On();
+	void AN_Sword_On();
 	UFUNCTION(BlueprintCallable, Category = "Combat|Notify")
-	void AN_WeaponHitbox_Off();
+	void AN_Sword_Off();
 
 protected:
 	//입력 -> 스킬스펙 조회 -> (쿨/AP 체크) -> 몽타주 재생
 	bool InternalUseSkill(const FSkillSpec& Spec, ESkillInput InputKind);
-
-	//간단 쿨타임 타이머
-	TMap<ESkillInput, float> CooldownTimers;
 
 	//쿨다운 감소
 	void UpdateCooldowns(float DeltaSeconds);
@@ -263,12 +293,17 @@ protected:
 		bool bFromSweep,
 		const FHitResult& Sweep);
 
-	//스킬 Q 입력막기
-private:
+	//쿨타임
+#pragma region
+	TMap<ESkillInput, float> CooldownTimers;
+	void BroadcastCooldown(ESkillInput Input, float Remaining, float Duration);
+#pragma endregion
+
+
+	
+private: //스킬 Q 입력막기
 	FTimerHandle MovementLockStartHandle;
 	UPROPERTY() UAnimMontage* ActiveSkillMontage = nullptr;
-	void LockMoveInputDelayed();
-
 	bool bMoveInputLocked = false;
 
 	UFUNCTION()
