@@ -1,26 +1,29 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-#pragma once
-
+﻿#pragma once
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "InputCoreTypes.h"
 #include "ParryInputProxy.generated.h"
+
+class UParryComponent;
 
 UCLASS()
 class CATHERALBATTLE_API AParryInputProxy : public AActor
 {
 	GENERATED_BODY()
-	
-public:	
-	// Sets default values for this actor's properties
+
+public:
 	AParryInputProxy();
 
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input") FKey PrimaryKey = EKeys::E;
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input") FKey SecondaryKey = EKeys::SpaceBar;
+
 protected:
-	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+private:
+	TWeakObjectPtr<UParryComponent> ParryComp;
 
+	void CacheParryComponent();
+	void BindKeys();
+	void OnParryPressed();
 };

@@ -1,27 +1,58 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+﻿#include "ParryInputProxy.h"
+#include "ParryComponent.h"
+#include "Kismet/GameplayStatics.h"
+#include "GameFramework/PlayerController.h"
+#include "GameFramework/Pawn.h"
+#include "Components/InputComponent.h"
 
-
-#include "ParryInputProxy.h"
-
-// Sets default values
 AParryInputProxy::AParryInputProxy()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
-
+	PrimaryActorTick.bCanEverTick = false;
 }
 
-// Called when the game starts or when spawned
 void AParryInputProxy::BeginPlay()
 {
 	Super::BeginPlay();
-	
+	CacheParryComponent();
+	BindKeys();
 }
 
-// Called every frame
-void AParryInputProxy::Tick(float DeltaTime)
+void AParryInputProxy::CacheParryComponent()
 {
-	Super::Tick(DeltaTime);
+	APawn* P = UGameplayStatics::GetPlayerPawn(this, 0);
+	if (!P) return;
 
+	if (UActorComponent* C = P->FindComponentByClass(UParryComponent::StaticClass()))
+	{
+		ParryComp = Cast<UParryComponent>(C);
+	}
 }
 
+void AParryInputProxy::BindKeys()
+{
+	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
+	if (!PC) return;
+
+	EnableInput(PC);
+
+	if (!InputComponent)
+	{
+		InputComponent = NewObject<UInputComponent>(this, TEXT("ParryInputProxyIC"));
+		InputComponent->RegisterComponent();
+	}
+	InputComponent->BindKey(PrimaryKey, IE_Pressed, this, &AParryInputProxy::OnParryPressed);
+	if (SecondaryKey.IsValid())
+		InputComponent->BindKey(SecondaryKey, IE_Pressed, this, &AParryInputProxy::OnParryPressed);
+}
+
+void AParryInputProxy::OnParryPressed()
+{
+	if (!ParryComp.IsValid())
+	{
+		CacheParryComponent();
+	}
+	if (ParryComp.IsValid())
+	{
+		ParryComp->OnParryPressed();
+	}
+}
