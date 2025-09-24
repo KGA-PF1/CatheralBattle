@@ -112,6 +112,7 @@ public:
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
+#pragma region Camera and Input
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	USpringArmComponent* CameraBoom;
 
@@ -150,6 +151,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* UltimateAction;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
+	UInputAction* ShieldAction;
+#pragma endregion
 protected:
 
 	/** Called for movement input */
@@ -180,6 +184,8 @@ public:
 	void StopSprint();
 	UFUNCTION(BlueprintCallable)
 	void SyncMovementSpeed();
+
+
 
 
 	//Event 변수들
@@ -221,7 +227,7 @@ public:
 	UFUNCTION(BlueprintPure, Category="Skill|Cooldown")
 	float GetCooldownPercent(ESkillInput Input) const;
 #pragma endregion
-	
+public:
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	bool IsDead() const { return Stats.Hp <= 0; }
 	//TODO: ApplyDamage 필요하면 변경
@@ -238,8 +244,15 @@ public:
 	TMap<ESkillInput, FSkillSpec> SkillTable;
 
 
+
+	//스킬 관련 코드들
+#pragma region Skill Code
 	//TODO: UltGauge가 MaxUltGauge이여야 궁극기 하도록
 	//TODO: UltGauge 0으로 만들기
+public:
+	UPROPERTY(BlueprintReadWrite, Category="State")
+	bool bCanAttack = true;
+
 	UFUNCTION(BlueprintCallable, Category = "Skill")
 	bool TryUseSkill(ESkillInput InputKind);
 	UFUNCTION(BlueprintCallable, Category = "Skill")
@@ -266,6 +279,13 @@ public:
 	UBoxComponent* Sword;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|Weapon")
 	FName WeaponSocketName = TEXT("sword_top"); //TODO: 소켓 이름 알아오기
+
+	//방패 히트박스
+	//UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Shield")
+	//UBoxComponent* Shield;
+	//UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Combat|Shield")
+	//FName ShieldSocketName = TEXT("shield_inner");
+
 
 	//AnimNotify에서 쓸 On, Off
 	UFUNCTION(BlueprintCallable, Category = "Combat|Notify")
@@ -294,13 +314,9 @@ protected:
 		const FHitResult& Sweep);
 
 	//쿨타임
-#pragma region
 	TMap<ESkillInput, float> CooldownTimers;
 	void BroadcastCooldown(ESkillInput Input, float Remaining, float Duration);
-#pragma endregion
 
-
-	
 private: //스킬 Q 입력막기
 	FTimerHandle MovementLockStartHandle;
 	UPROPERTY() UAnimMontage* ActiveSkillMontage = nullptr;
@@ -312,4 +328,6 @@ private: //스킬 Q 입력막기
 	void OnMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 	void LockMoveInput();
 	void UnLockMoveInput();
+#pragma endregion
+
 };
