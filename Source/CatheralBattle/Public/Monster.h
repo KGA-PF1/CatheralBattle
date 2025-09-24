@@ -8,6 +8,7 @@
 
 //몬스터 사망시 브로드캐스트 이벤트 (스포너/게임모드에서 사용)
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnMonsterDeath, class AMonster*, Monster);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHpMonster, float, CurrentHP, float, MaxHP);
 
 UCLASS()
 
@@ -17,7 +18,7 @@ class CATHERALBATTLE_API AMonster : public ACharacter
 
 protected:
     virtual void BeginPlay() override;
-
+    virtual void Tick(float DeltaTime) override;
 public:
     AMonster();
 public:
@@ -47,9 +48,10 @@ public:
 
 		bool bCanAttack = true; // 공격 가능 여부 변수
 
+        void OnSpawnAnimationFinished();
+
         // 공격 함수 선언
       
-
         // 공격 쿨타임 리셋 함수
 		void ResetAttackCooldown();// 공격 쿨타임 리셋 함수
         FTimerHandle AttackTimerHandle;
@@ -58,14 +60,20 @@ public:
         // 몬스터가 죽을 때 알림
         UPROPERTY(BlueprintAssignable, Category = "Monster")
 		FOnMonsterDeath OnMonsterDeath; // 몬스터가 죽을 때 알림 이벤트
-    
+        
+        UPROPERTY(BlueprintAssignable, Category = "Monster")
+        FOnHpMonster OnHpMonster;
+
         // ==== 함수 ====
         UFUNCTION(BlueprintCallable, Category = "Monster")
 		void TakeDamageCustom(int32 DamageAmount);// 커스텀 데미지 함수
       
+        
+
     protected:
 		void OnDeath(); // 몬스터가 죽었을 때 처리 함수
 		void DestroyMonster(); // 몬스터 제거 함수
+        
         UFUNCTION(BlueprintCallable, Category = "Monster")
 		void PerformAttack();// 공격 함수
 		FTimerHandle DeathTimerHandle; // 죽음 후 제거 타이머 핸들
