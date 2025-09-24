@@ -40,15 +40,15 @@ public:
 private:
     TArray<AMonster*> SpawnedMonsters;  // 현재 스폰된 몬스터 배열
 
-    void SpawnMonsterAt(const FVector& Location);
+	void SpawnMonsterAt(const FVector& Location); // 특정 위치에 몬스터 스폰
 
-    FVector GetRandomPointInRadius();
+	FVector GetRandomPointInRadius(); // 반경 내 랜덤 위치 반환
 
-    FVector FindSpawnLocationAwayFromPlayer();
+	FVector FindSpawnLocationAwayFromPlayer(); // 플레이어로부터 일정 거리 떨어진 위치 찾기
 
     UFUNCTION()
-    void OnMonsterKilled(AMonster* DeadMonster);
+	void OnMonsterKilled(AMonster* DeadMonster); // 몬스터 사망시 호출되는 함수
 
 public:
-    void SpawnInitialMonsters();
+	void SpawnInitialMonsters(); // 초기 몬스터 스폰
 };
