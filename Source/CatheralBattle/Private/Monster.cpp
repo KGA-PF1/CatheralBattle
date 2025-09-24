@@ -35,21 +35,17 @@ void AMonster::ResetAttackCooldown()
 
 void AMonster::TakeDamageCustom(int32 DamageAmount)
 {
-	if (DamageAmount <= 0 || IsDead()) return;
-	const int32 OldHp = CurrentHP;
-	CurrentHP = FMath::Clamp(CurrentHP - DamageAmount, 0, MaxHP);
-	if (CurrentHP != OldHp)
-	{
-		OnHpMonster.Broadcast(CurrentHP, MaxHP);
-	}
+	CurrentHP -= DamageAmount;
+	if (CurrentHP < 0) CurrentHP = 0;
 
-	if (IsDead())
+	// HP 변경 이벤트 발생 (위젯에 브로드캐스트)
+	OnHpMonster.Broadcast((float)CurrentHP, (float)MaxHP);
+
+	if (CurrentHP <= 0)
 	{
 		OnDeath();
 	}
 }
-
-
 
 void AMonster::OnDeath()
 {
