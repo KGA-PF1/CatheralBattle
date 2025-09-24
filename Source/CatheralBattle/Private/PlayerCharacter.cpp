@@ -22,7 +22,7 @@ APlayerCharacter::APlayerCharacter()
 
 	// Don't rotate when the controller rotates. Let that just affect the camera.
 	bUseControllerRotationPitch = false;
-	bUseControllerRotationYaw = false;
+	bUseControllerRotationYaw = true;
 	bUseControllerRotationRoll = false;
 
 	// Configure character movement
@@ -37,6 +37,7 @@ APlayerCharacter::APlayerCharacter()
 	GetCharacterMovement()->MinAnalogWalkSpeed = 20.f;
 	GetCharacterMovement()->BrakingDecelerationWalking = 2000.f;
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
+	GetCharacterMovement()->GravityScale = 1.75f;
 
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
@@ -50,7 +51,7 @@ APlayerCharacter::APlayerCharacter()
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 
 	//무기 히트박스
-	Sword = CreateDefaultSubobject<UBoxComponent>(TEXT("WeaponHitBox"));
+	Sword = CreateDefaultSubobject<UBoxComponent>(TEXT("Sword"));
 	Sword->SetupAttachment(GetMesh());
 	Sword->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	Sword->SetGenerateOverlapEvents(true);
@@ -124,6 +125,7 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		EnhancedInputComponent->BindAction(SkillQAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_SkillQ);
 		EnhancedInputComponent->BindAction(SkillEAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_SkillE);
 		EnhancedInputComponent->BindAction(UltimateAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_Ult);
+		//EnhancedInputComponent->BindAction(ShieldAction, ETriggerEvent::Started, this, &APlayerCharacter::)
 	}
 }
 
@@ -262,6 +264,7 @@ void APlayerCharacter::Input_SkillE()
 
 void APlayerCharacter::Input_Ult()
 {
+	if(Stats.UltGauge)
 	TryUseUlt();
 }
 
@@ -312,6 +315,7 @@ bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput Inpu
 		Sword->SetRelativeLocation(Spec.BoxRelLocation);
 		Sword->SetRelativeRotation(Spec.BoxRelRotation);
 	}
+	bCanAttack = false;
 
 	//몽타주 재생
 	if (InputKind == ESkillInput::Skill_Q)
@@ -330,6 +334,11 @@ bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput Inpu
 			false
 		);
 		//LockMoveInput();
+	}
+	else if (InputKind == ESkillInput::Ult_R)
+	{
+		LockMoveInput();
+		PlaySkillMontage(Spec);
 	}
 	else
 	{
@@ -411,10 +420,12 @@ void APlayerCharacter::BroadcastCooldown(ESkillInput Input, float Remaining, flo
 void APlayerCharacter::OnMontageBlendOut(UAnimMontage* Montage, bool bInterrupted)
 {
 	UnLockMoveInput();
+	bCanAttack = true;
 }
 void APlayerCharacter::OnMontageEnded(UAnimMontage* Montage, bool bInterrupted)
 {
 	UnLockMoveInput();
+	bCanAttack = true;
 }
 
 void APlayerCharacter::LockMoveInput()
