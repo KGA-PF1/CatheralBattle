@@ -50,13 +50,13 @@ APlayerCharacter::APlayerCharacter()
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 
 	//무기 히트박스
-	WeaponHitBox = CreateDefaultSubobject<UBoxComponent>(TEXT("WeaponHitBox"));
-	WeaponHitBox->SetupAttachment(GetMesh());
-	WeaponHitBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	WeaponHitBox->SetGenerateOverlapEvents(true);
-	WeaponHitBox->SetCollisionObjectType(ECC_WorldDynamic);
-	WeaponHitBox->SetCollisionResponseToAllChannels(ECR_Ignore);
-	WeaponHitBox->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	Sword = CreateDefaultSubobject<UBoxComponent>(TEXT("WeaponHitBox"));
+	Sword->SetupAttachment(GetMesh());
+	Sword->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Sword->SetGenerateOverlapEvents(true);
+	Sword->SetCollisionObjectType(ECC_WorldDynamic);
+	Sword->SetCollisionResponseToAllChannels(ECR_Ignore);
+	Sword->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 }
 
 void APlayerCharacter::BeginPlay()
@@ -77,14 +77,14 @@ void APlayerCharacter::BeginPlay()
 	}
 
 	//무기 히트박스
-	if (WeaponHitBox && GetMesh())
+	if (Sword && GetMesh())
 	{
-		WeaponHitBox->AttachToComponent(
+		Sword->AttachToComponent(
 			GetMesh(),
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
 			WeaponSocketName
 		);
-		WeaponHitBox->OnComponentBeginOverlap.AddDynamic(this, &APlayerCharacter::OnWeaponBeginOverlap);
+		Sword->OnComponentBeginOverlap.AddDynamic(this, &APlayerCharacter::OnWeaponBeginOverlap);
 	}
 
 	//초기 쿨다운 0
@@ -120,7 +120,7 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &APlayerCharacter::StopSprint);
 
 		//공격 관련
-		//EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_Attack);
+		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_Attack);
 		EnhancedInputComponent->BindAction(SkillQAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_SkillQ);
 		EnhancedInputComponent->BindAction(SkillEAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_SkillE);
 		EnhancedInputComponent->BindAction(UltimateAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_Ult);
@@ -185,6 +185,31 @@ void APlayerCharacter::SyncMovementSpeed()
 	}
 }
 
+float APlayerCharacter::GetCooldownRemaining(ESkillInput Input) const
+{
+	if (const float* P = CooldownTimers.Find(Input))
+	{
+		return *P;
+	}
+	return 0.0f;
+}
+
+float APlayerCharacter::GetCooldownDuration(ESkillInput Input) const
+{
+	if (const FSkillSpec* Spec = SkillTable.Find(Input))
+	{
+		return FMath::Max(0.f, Spec->CooldownSec);
+	}
+	return 0.0f;
+}
+
+float APlayerCharacter::GetCooldownPercent(ESkillInput Input) const
+{
+	const float Duration = GetCooldownDuration(Input);
+	const float Remaining = GetCooldownRemaining(Input);
+	return (Duration > 0.f) ? (Remaining / Duration) : 0.f;
+}
+
 void APlayerCharacter::TakeDamage(float Damage)
 {
 	if (Damage <= 0 || IsDead()) return;
@@ -240,19 +265,19 @@ void APlayerCharacter::Input_Ult()
 	TryUseUlt();
 }
 
-void APlayerCharacter::AN_WeaponHitbox_On()
+void APlayerCharacter::AN_Sword_On()
 {
-	if (WeaponHitBox)
+	if (Sword)
 	{
-		WeaponHitBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		Sword->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	}
 }
 
-void APlayerCharacter::AN_WeaponHitbox_Off()
+void APlayerCharacter::AN_Sword_Off()
 {
-	if (WeaponHitBox)
+	if (Sword)
 	{
-		WeaponHitBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Sword->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 }
 
@@ -281,11 +306,11 @@ bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput Inpu
 	}
 
 	//히트박스 모양 업데이트
-	if (WeaponHitBox && Spec.bUseWeaponHitBox)
+	if (Sword && Spec.bUseWeaponHitBox)
 	{
-		WeaponHitBox->SetBoxExtent(Spec.BoxExtent, true);
-		WeaponHitBox->SetRelativeLocation(Spec.BoxRelLocation);
-		WeaponHitBox->SetRelativeRotation(Spec.BoxRelRotation);
+		Sword->SetBoxExtent(Spec.BoxExtent, true);
+		Sword->SetRelativeLocation(Spec.BoxRelLocation);
+		Sword->SetRelativeRotation(Spec.BoxRelRotation);
 	}
 
 	//몽타주 재생
@@ -313,7 +338,9 @@ bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput Inpu
 	//쿨다운 스타트
 	if (float* Timer = CooldownTimers.Find(InputKind))
 	{
-		*Timer = FMath::Max(0.f, Spec.CooldownSec);
+		const float Duration = FMath::Max(0.f, Spec.CooldownSec);
+		*Timer = Duration;
+		BroadcastCooldown(InputKind, *Timer, Duration);
 	}
 
 	return true;
@@ -323,9 +350,27 @@ void APlayerCharacter::UpdateCooldowns(float DeltaTime)
 {
 	for (auto& Pair : CooldownTimers)
 	{
-		if (Pair.Value > 0.f)
+		const ESkillInput Input = Pair.Key;
+		float& Remaining = Pair.Value;
+
+		if (Remaining > 0.f)
 		{
-			Pair.Value = FMath::Max(0.f, Pair.Value - DeltaTime);
+			const float Old = Remaining;
+			Remaining = FMath::Max(0.f, Remaining - DeltaTime);
+
+			//총 지속시간은 스킬테이블에서 조회
+			const FSkillSpec* Spec = SkillTable.Find(Input);
+			const float Duration = Spec ? FMath::Max(0.f, Spec->CooldownSec) : 0.f;
+
+			//값 변동 시에만 브로드캐스트
+			if (!FMath::IsNearlyEqual(Old, Remaining))
+			{
+				BroadcastCooldown(Input, Remaining, Duration);
+			}
+			if (Remaining <= 0.f)
+			{
+				OnCooldownEnded.Broadcast(Input);
+			}
 		}
 	}
 }
@@ -358,8 +403,9 @@ void APlayerCharacter::OnWeaponBeginOverlap(UPrimitiveComponent* OverlappedComp,
 {
 }
 
-void APlayerCharacter::LockMoveInputDelayed()
+void APlayerCharacter::BroadcastCooldown(ESkillInput Input, float Remaining, float Duration)
 {
+	OnCooldownUpdated.Broadcast(Input, Remaining, Duration);
 }
 
 void APlayerCharacter::OnMontageBlendOut(UAnimMontage* Montage, bool bInterrupted)
