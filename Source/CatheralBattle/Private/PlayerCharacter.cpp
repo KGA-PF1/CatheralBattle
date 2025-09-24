@@ -11,13 +11,9 @@
 #include "EnhancedInputComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
+#include "Components/BoxComponent.h"
 
-// Called every frame
-void APlayerCharacter::Tick(float DeltaTime)
-{
-	Super::Tick(DeltaTime);
 
-}
 
 APlayerCharacter::APlayerCharacter()
 {
@@ -53,8 +49,14 @@ APlayerCharacter::APlayerCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 
-	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
-	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
+	//무기 히트박스
+	WeaponHitBox = CreateDefaultSubobject<UBoxComponent>(TEXT("WeaponHitBox"));
+	WeaponHitBox->SetupAttachment(GetMesh());
+	WeaponHitBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	WeaponHitBox->SetGenerateOverlapEvents(true);
+	WeaponHitBox->SetCollisionObjectType(ECC_WorldDynamic);
+	WeaponHitBox->SetCollisionResponseToAllChannels(ECR_Ignore);
+	WeaponHitBox->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 }
 
 void APlayerCharacter::BeginPlay()
@@ -73,10 +75,30 @@ void APlayerCharacter::BeginPlay()
 			Subsystem->AddMappingContext(DefaultMappingContext, 0);
 		}
 	}
+
+	//무기 히트박스
+	if (WeaponHitBox && GetMesh())
+	{
+		WeaponHitBox->AttachToComponent(
+			GetMesh(),
+			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+			WeaponSocketName
+		);
+		WeaponHitBox->OnComponentBeginOverlap.AddDynamic(this, &APlayerCharacter::OnWeaponBeginOverlap);
+	}
+
+	//초기 쿨다운 0
+	for (const auto& Pair : SkillTable)
+	{
+		CooldownTimers.Add(Pair.Key, 0.f);
+	}
 }
 
-//////////////////////////////////////////////////////////////////////////
-// Input
+void APlayerCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+	UpdateCooldowns(DeltaTime);
+}
 
 void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
 {
@@ -96,6 +118,12 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		//Sprint
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &APlayerCharacter::StartSprint);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &APlayerCharacter::StopSprint);
+
+		//공격 관련
+		//EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_Attack);
+		EnhancedInputComponent->BindAction(SkillQAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_SkillQ);
+		EnhancedInputComponent->BindAction(SkillEAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_SkillE);
+		EnhancedInputComponent->BindAction(UltimateAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_Ult);
 	}
 }
 
@@ -183,3 +211,184 @@ void APlayerCharacter::AddUltGauge(float Amount)
 	OnUltGaugeChanged.Broadcast(Stats.UltGauge, Stats.MaxUltGauge);
 }
 
+bool APlayerCharacter::TryUseSkill(ESkillInput InputKind)
+{
+	if (const FSkillSpec* Spec = SkillTable.Find(InputKind))
+	{
+		return InternalUseSkill(*Spec, InputKind);
+	}
+	return false;
+}
+
+void APlayerCharacter::Input_Attack()
+{
+	TryUseAttack();
+}
+
+void APlayerCharacter::Input_SkillQ()
+{
+	TryUseSkillQ();
+}
+
+void APlayerCharacter::Input_SkillE()
+{
+	TryUseSkillE();
+}
+
+void APlayerCharacter::Input_Ult()
+{
+	TryUseUlt();
+}
+
+void APlayerCharacter::AN_WeaponHitbox_On()
+{
+	if (WeaponHitBox)
+	{
+		WeaponHitBox->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	}
+}
+
+void APlayerCharacter::AN_WeaponHitbox_Off()
+{
+	if (WeaponHitBox)
+	{
+		WeaponHitBox->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+}
+
+bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput InputKind)
+{
+	//몽타주 없는 스킬 무시
+	if (!Spec.Montage) return false;
+
+	//중복 시전 방지
+	if (UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+	{
+		if (Anim->IsAnyMontagePlaying()) return false;
+	}
+
+	//간단 쿨타임 체크
+	if (float* Timer = CooldownTimers.Find(InputKind))
+	{
+		if (*Timer > 0.f) return false;
+	}
+
+	//턴제: AP 체크
+	if (bTurnBased && Spec.APCost > 0)
+	{
+		if (Stats.AP < Spec.APCost) return false;
+		Stats.AP -= Spec.APCost;
+	}
+
+	//히트박스 모양 업데이트
+	if (WeaponHitBox && Spec.bUseWeaponHitBox)
+	{
+		WeaponHitBox->SetBoxExtent(Spec.BoxExtent, true);
+		WeaponHitBox->SetRelativeLocation(Spec.BoxRelLocation);
+		WeaponHitBox->SetRelativeRotation(Spec.BoxRelRotation);
+	}
+
+	//몽타주 재생
+	if (InputKind == ESkillInput::Skill_Q)
+	{
+		Jump();
+		LaunchCharacter(FVector(0.f, 0.f, 700.f), true, true);
+
+		PlaySkillMontage(Spec);
+		GetWorldTimerManager().ClearTimer(MovementLockStartHandle);
+		GetWorldTimerManager().SetTimer(
+			MovementLockStartHandle,
+			this,
+			//	&APlayerCharacter::LockMoveInputDelayed,
+			&APlayerCharacter::LockMoveInput,
+			1.0f,
+			false
+		);
+		//LockMoveInput();
+	}
+	else
+	{
+		PlaySkillMontage(Spec);
+	}
+	//쿨다운 스타트
+	if (float* Timer = CooldownTimers.Find(InputKind))
+	{
+		*Timer = FMath::Max(0.f, Spec.CooldownSec);
+	}
+
+	return true;
+}
+
+void APlayerCharacter::UpdateCooldowns(float DeltaTime)
+{
+	for (auto& Pair : CooldownTimers)
+	{
+		if (Pair.Value > 0.f)
+		{
+			Pair.Value = FMath::Max(0.f, Pair.Value - DeltaTime);
+		}
+	}
+}
+
+void APlayerCharacter::PlaySkillMontage(const FSkillSpec& Spec)
+{
+	if (!Spec.Montage) return;
+	if (UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+	{
+		float Len = Anim->Montage_Play(Spec.Montage);
+		if (Len > 0.f)
+		{
+			//잠금 해제 이벤트 바인딩(끝, 중단)
+			FOnMontageBlendingOutStarted BlendOut;
+			BlendOut.BindUObject(this, &APlayerCharacter::OnMontageBlendOut);
+			Anim->Montage_SetBlendingOutDelegate(BlendOut, Spec.Montage);
+
+			FOnMontageEnded Ended;
+			Ended.BindUObject(this, &APlayerCharacter::OnMontageEnded);
+			Anim->Montage_SetEndDelegate(Ended, Spec.Montage);
+		}
+		//if (Len > 0.f && Spec.MontageSection != NAME_None)
+		//{
+		//	Anim->Montage_JumpToSection(Spec.MontageSection, Spec.Montage);
+		//}
+	}
+}
+
+void APlayerCharacter::OnWeaponBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& Sweep)
+{
+}
+
+void APlayerCharacter::LockMoveInputDelayed()
+{
+}
+
+void APlayerCharacter::OnMontageBlendOut(UAnimMontage* Montage, bool bInterrupted)
+{
+	UnLockMoveInput();
+}
+void APlayerCharacter::OnMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	UnLockMoveInput();
+}
+
+void APlayerCharacter::LockMoveInput()
+{
+	if (bMoveInputLocked) return;
+
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		PC->SetIgnoreMoveInput(true);
+	}
+	bMoveInputLocked = true;
+}
+
+void APlayerCharacter::UnLockMoveInput()
+{
+	if (!bMoveInputLocked) return;
+
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		PC->SetIgnoreMoveInput(false);
+	}
+	bMoveInputLocked = false;
+}
