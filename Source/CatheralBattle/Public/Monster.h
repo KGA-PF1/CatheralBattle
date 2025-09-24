@@ -38,6 +38,11 @@ public:
         UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 		int32 Speed = 300;// 이동 속도
 
+        UFUNCTION(BlueprintCallable, Category = "Stats")
+        bool IsDead() const { return CurrentHP <= 0; }
+
+
+
         // 공격 범위 및 공격력 변수 추가
         UPROPERTY(EditAnywhere, Category = "Combat")
 		float AttackRange = 150.f;// 공격 범위 변수
