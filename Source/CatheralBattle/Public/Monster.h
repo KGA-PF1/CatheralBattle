@@ -17,11 +17,8 @@ class CATHERALBATTLE_API AMonster : public ACharacter
     GENERATED_BODY()
 
 protected:
-
     virtual void BeginPlay() override;
-
     virtual void Tick(float DeltaTime) override;
-
 public:
     AMonster();
 public:
