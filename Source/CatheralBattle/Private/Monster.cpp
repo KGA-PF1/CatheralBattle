@@ -12,7 +12,8 @@
 AMonster::AMonster()
 {
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true; // Tick 활성화
+	bCanAttack = true; // 초기 공격 가능 상태
 
 }
 
@@ -22,6 +23,8 @@ void AMonster::BeginPlay()
 	Super::BeginPlay();
 
 	CurrentHP = MaxHP;
+	OnHpMonster.Broadcast(CurrentHP, MaxHP);
+	
 }
 
 void AMonster::ResetAttackCooldown()
@@ -30,12 +33,13 @@ void AMonster::ResetAttackCooldown()
 }
 
 
-
 void AMonster::TakeDamageCustom(int32 DamageAmount)
 {
-	if (CurrentHP <= 0) return; // 이미 사망 상태라면 무시
-
 	CurrentHP -= DamageAmount;
+	if (CurrentHP < 0) CurrentHP = 0;
+
+	// HP 변경 이벤트 발생 (위젯에 브로드캐스트)
+	OnHpMonster.Broadcast((float)CurrentHP, (float)MaxHP);
 
 	if (CurrentHP <= 0)
 	{
@@ -90,12 +94,15 @@ void AMonster::PerformAttack()
 	}
 }
 
-// Called every frame
-//void AMonster::Tick(float DeltaTime)
-//{
-//	Super::Tick(DeltaTime);
-//
-//}
+ //Called every frame
+void AMonster::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
+
+	// 플레이어와 거리를 체크해 공격 범위 이내면 자동 공격 시도
+	PerformAttack();
+
+}
 //
 //// Called to bind functionality to input
 //void AMonster::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
