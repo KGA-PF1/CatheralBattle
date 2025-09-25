@@ -13,8 +13,6 @@ class UInputAction;
 class UAnimMontage;
 class UBoxComponent;
 struct FInputActionValue;
-class USphereComponent;
-class AMonster;
 
 //스킬 입력
 UENUM(BlueprintType)
@@ -278,7 +276,7 @@ public:
 
 	//무기 히트박스
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|Weapon")
-	UBoxComponent* Weapon;
+	UBoxComponent* Sword;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|Weapon")
 	FName WeaponSocketName = TEXT("sword_top"); //TODO: 소켓 이름 알아오기
 
@@ -305,6 +303,16 @@ protected:
 	//몽타주 재생 유틸
 	void PlaySkillMontage(const FSkillSpec& Spec);
 
+	//Overlap용
+	UFUNCTION()
+	void OnWeaponBeginOverlap(
+		UPrimitiveComponent* OverlappedComp,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex,
+		bool bFromSweep,
+		const FHitResult& Sweep);
+
 	//쿨타임
 	TMap<ESkillInput, float> CooldownTimers;
 	void BroadcastCooldown(ESkillInput Input, float Remaining, float Duration);
@@ -322,64 +330,4 @@ private: //스킬 Q 입력막기
 	void UnLockMoveInput();
 #pragma endregion
 
-	//오버랩 관련 코드들
-#pragma region Overlap
-private:
-	//AN_Sword_On ~ Off동안 중복 타격 방지
-	TSet<TWeakObjectPtr<AActor>> HitActorsThisSwing;
-
-public:
-	float CalcAttackDamage() const;
-	
-	//Q스킬
-	UFUNCTION(BlueprintCallable, Category = "Combat|AoE")
-	void AN_QSkillCircle(float Radius, float Damage);
-	//E스킬
-	UFUNCTION(BlueprintCallable, Category = "Combat|AoE")
-	void AN_ESkillCircle(float Radius, float Damage);
-
-	//E 도트딜(초당)
-	UFUNCTION(BlueprintCallable, Category = "Combat|AoE")
-	void AN_StartPersistentAoE(float Radius, float DamagePerSecond, float TickInterval, float LifetimeSec);
-	UFUNCTION(BlueprintCallable, Category = "Combat|AoE")
-	void AN_EndPersistentAoE();
-
-	//Overlap용
-	UFUNCTION()
-	void OnWeaponBeginOverlap(
-		UPrimitiveComponent* OverlappedComp,
-		AActor* OtherActor,
-		UPrimitiveComponent* OtherComp,
-		int32 OtherBodyIndex,
-		bool bFromSweep,
-		const FHitResult& Sweep);
-
-	//Overlap관리
-	UFUNCTION()
-	void OnPersistentAoEBeginOverlap(
-		UPrimitiveComponent* Comp,
-		AActor* Other,
-		UPrimitiveComponent* OtherComp,
-		int32 BodyIndex,
-		bool bFromSweep,
-		const FHitResult& Sweep);
-
-	UFUNCTION()
-	void OnPersistentAoEEndOverlap(
-		UPrimitiveComponent* Comp,
-		AActor* Other,
-		UPrimitiveComponent* OtherComp,
-		int32 BodyIndex);
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|AoE")
-	USphereComponent* PersistentAoEComp = nullptr;
-
-	TSet<TWeakObjectPtr<AMonster>> PersistentAoEActors;
-	FTimerHandle PersistentAoE_TickTimer;
-	FTimerHandle PersistentAoE_LifeTimer;
-
-	float Persistent_Damage = 0.f;
-	float Persistent_TickInterval = 1.f;
-	void DealPersistentAoEDamage();
-#pragma endregion
 };
