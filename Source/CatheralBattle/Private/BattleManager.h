@@ -1,5 +1,7 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
+#include "TurnMenuWidget.h"
+#include "BattleHUDWidget.h"
 #include "GameFramework/Actor.h"
 #include "BattleManager.generated.h"
 
@@ -7,6 +9,10 @@ class APlayerCharacter;
 class ABoss_Sevarog;
 class AParryInputProxy;
 class UAnimMontage;
+class UTurnMenuWidget;
+class UBattleHUDWidget;
+
+enum class EPlayerCommand : uint8;
 
 UENUM(BlueprintType)
 enum class ETurn : uint8 { Player, Boss };
@@ -46,6 +52,13 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Battle") ETurn GetCurrentTurn() const { return CurrentTurn; }
 
+	// UI 클래스(UMG에서 만들고 지정)
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Battle|UI")
+	TSubclassOf<UTurnMenuWidget> TurnMenuClass;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Battle|UI")
+	TSubclassOf<UBattleHUDWidget> HUDClass;
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -71,4 +84,18 @@ private:
 
 	UFUNCTION() void OnPlayerHpChanged(float NewHp, float MaxHp);
 	UFUNCTION() void OnBossPatternFinished();
+
+	// UI
+	UPROPERTY() UTurnMenuWidget* TurnMenu = nullptr;
+	UPROPERTY() UBattleHUDWidget* HUD = nullptr;
+
+	void ShowPlayerUI(bool bShowMenu);
+	void UpdateHUDSnapshot();
+	void BindRuntimeSignals();
+
+	UFUNCTION() void HandleMenuConfirm(EPlayerCommand Command);
+	UFUNCTION() void OnParryToast();
+	UFUNCTION() void OnBossDealDmg(float Amt);
+
+
 };

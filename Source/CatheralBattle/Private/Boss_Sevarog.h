@@ -8,6 +8,7 @@ class APlayerCharacter;
 
 /** 델리게이트 */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPatternFinished);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnBossDealtDamage, float, Amount);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnBossArmParry, APlayerCharacter*, Target, int32, HitIndex, float, WindowSec);
 
 
@@ -41,6 +42,8 @@ public:
 
 	/** 보스 피해(플레이어 턴 등) */
 	UFUNCTION(BlueprintCallable, Category = "Boss|Stat") void ApplyDamageToBoss(float Damage);
+	UPROPERTY(BlueprintAssignable, Category = "Boss|Event") FOnBossDealtDamage OnBossDealtDamage;
+
 
 private:
 	/** 이번 패턴 대상/성공기록 */

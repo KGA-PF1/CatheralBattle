@@ -122,6 +122,8 @@ void UParryComponent::HandleParrySuccess()
 	ArmedBoss->NotifyParrySuccess(OwnerPC, ArmedHitIndex);
 
 	ExpireArm();
+	OnParrySuccess.Broadcast();
+
 }
 
 void UParryComponent::BeginRecovery()

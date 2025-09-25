@@ -5,6 +5,12 @@
 #include "Boss_Sevarog.h"
 #include "ParryInputProxy.h"
 #include "Animation/AnimMontage.h"
+#include "TurnMenuWidget.h"
+#include "BattleHUDWidget.h"
+#include "Blueprint/UserWidget.h"
+#include "GameFramework/PlayerController.h"
+#include "ParryComponent.h"
+
 
 ABattleManager::ABattleManager()
 {
@@ -15,6 +21,14 @@ void ABattleManager::BeginPlay()
 {
 	Super::BeginPlay();
 	if (!ParryProxy) { TryAutoWireProxy(); }
+
+	// UI 생성
+	if (HUDClass)
+	{
+		HUD = CreateWidget<UBattleHUDWidget>(GetWorld(), HUDClass);
+		if (HUD) { HUD->AddToViewport(0); }
+	}
+
 	if (bAutoStart) { StartBattle(); }
 }
 
@@ -24,6 +38,13 @@ void ABattleManager::Initialize(APlayerCharacter* InPlayer, ABoss_Sevarog* InBos
 	BossRef = InBoss;
 	if (InProxy) { ParryProxy = InProxy; }
 	else if (!ParryProxy) { TryAutoWireProxy(); }
+
+	// Parry 성공 토스트
+	if (UParryComponent* PCmp = PlayerRef->FindComponentByClass<UParryComponent>()) {
+		PCmp->OnParrySuccess.AddDynamic(this, &ABattleManager::OnParryToast);
+	}
+	if (BossRef) { BossRef->OnBossDealtDamage.AddDynamic(this, &ABattleManager::OnBossDealDmg); }
+
 
 	// 플레이어 사망 감지
 	if (PlayerRef)
@@ -35,6 +56,9 @@ void ABattleManager::Initialize(APlayerCharacter* InPlayer, ABoss_Sevarog* InBos
 	{
 		BossRef->OnPatternFinished.AddDynamic(this, &ABattleManager::OnBossPatternFinished);
 	}
+
+	BindRuntimeSignals();
+	UpdateHUDSnapshot();
 }
 
 void ABattleManager::StartBattle()
@@ -59,6 +83,8 @@ void ABattleManager::EndBattle()
 void ABattleManager::NotifyPlayerTurnDone()
 {
 	if (!bRunning) return;
+	// 메뉴 OFF
+	ShowPlayerUI(false);
 	CheckEnd();
 	if (!bRunning) return;
 	EnterBossTurn();
@@ -67,25 +93,16 @@ void ABattleManager::NotifyPlayerTurnDone()
 void ABattleManager::EnterPlayerTurn()
 {
 	CurrentTurn = ETurn::Player;
-	SetParryEnabled(false); // 보스턴 아님 → 패링 비활성
-	// 플레이어 커맨드 입력/UI는 게임 쪽에서 처리 후 NotifyPlayerTurnDone 호출!
+	SetParryEnabled(false);
+	ShowPlayerUI(true);       // 메뉴 ON
+	UpdateHUDSnapshot();
 }
 
-void ABattleManager::EnterBossTurn()
-{
+void ABattleManager::EnterBossTurn() {
 	CurrentTurn = ETurn::Boss;
-	SetParryEnabled(true); // 보스턴 → 패링 활성
-
-	// 몽타주 선택
-	UAnimMontage* Chosen = nullptr;
-	if (BossPatternMontages.Num() > 0)
-	{
-		const int32 Idx = PickMontageIndex();
-		Chosen = BossPatternMontages[Idx];
-		LastPatternIdx = Idx;
-	}
-	// 패턴 재생(Notify들이 패턴 Begin/Window/Hit/End를 처리)
-	BossRef->PlayPatternMontage(Chosen, PlayerRef);
+	SetParryEnabled(true);
+	ShowPlayerUI(false);      // 메뉴 OFF
+	// ...기존 몽타주 선택/재생...
 }
 
 int32 ABattleManager::PickMontageIndex() const
@@ -133,9 +150,109 @@ void ABattleManager::OnBossPatternFinished()
 	EnterPlayerTurn();
 }
 
+void ABattleManager::BindRuntimeSignals() {
+	if (PlayerRef) {
+		PlayerRef->OnHpChanged.AddDynamic(this, &ABattleManager::OnPlayerHpChanged);
+		// 플레이어 Ult/AP 이벤트가 있다면 여기에 추가 바인딩(없으면 액션 시 직접 HUD 갱신)
+	}
+	if (BossRef) {
+		BossRef->OnPatternFinished.AddDynamic(this, &ABattleManager::OnBossPatternFinished);
+		// 보스 HP 변경/피해 딜리게이트가 있으면 바인딩해서 HUD/토스트 표기
+	}
+	// Parry 성공 토스트: 플레이어의 ParryComponent 찾아 바인딩(있으면)
+}
+
+
 void ABattleManager::CheckEnd()
 {
 	if (!PlayerRef || !BossRef) { EndBattle(); return; }
 	if (PlayerRef->IsDead()) { EndBattle(); return; }
 	if (BossRef->Hp <= 0.f) { EndBattle(); return; }
+}
+
+void ABattleManager::ShowPlayerUI(bool bShowMenu) {
+	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
+	if (!PC) return;
+
+	// HUD는 항상 보이게(이미 Add됨)
+	if (bShowMenu) {
+		if (!TurnMenu && TurnMenuClass) {
+			TurnMenu = CreateWidget<UTurnMenuWidget>(GetWorld(), TurnMenuClass);
+			if (TurnMenu) {
+				TurnMenu->AddToViewport(100);
+				// 궁극기 가능여부 세팅
+				bool bUlt = false;
+				if (PlayerRef) {
+					// PlayerCharacter에 게터가 있으면 사용
+					if constexpr (true) { /* 그냥 예시 블록 */ }
+					// 1) GetUltGauge()가 있으면:
+					if (PlayerRef->GetUltGauge() >= 100.f) bUlt = true;
+					// (만약 GetUltGauge가 없다면, 아래 3) 참고해서 게터 추가)
+				}
+				TurnMenu->SetUltimateEnabled(bUlt);
+
+				// Confirm → 실제 실행 → 토스트 → NotifyPlayerTurnDone
+				TurnMenu->OnConfirm.AddDynamic(this, &ABattleManager::HandleMenuConfirm);
+			}
+		}
+		// 입력모드 UIOnly
+		FInputModeUIOnly M; M.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+		PC->SetInputMode(M); PC->bShowMouseCursor = false;
+	}
+	else {
+		if (TurnMenu) { TurnMenu->RemoveFromParent(); TurnMenu = nullptr; }
+		// 입력모드 GameOnly (보스턴에 패링키만)
+		FInputModeGameOnly M; PC->SetInputMode(M); PC->bShowMouseCursor = false;
+	}
+}
+
+void ABattleManager::UpdateHUDSnapshot() {
+	if (!HUD) return;
+	if (PlayerRef) { HUD->SetPlayerHP(PlayerRef->GetHp(), PlayerRef->GetMaxHp()); HUD->SetAP(PlayerRef->Stats.AP); HUD->SetUlt(PlayerRef->GetUltGauge(), 100.f); }
+	if (BossRef) { HUD->SetBossHP(BossRef->Hp, BossRef->MaxHp); }
+}
+
+void ABattleManager::HandleMenuConfirm(EPlayerCommand Command)
+{
+	// 아주 간단한 실행(연출은 BP에서)
+	switch (Command) {
+	case EPlayerCommand::Attack:
+		if (BossRef) { BossRef->ApplyDamageToBoss(20.f); }
+		if (HUD) { HUD->ShowToast(TEXT("Attack -20"), 0.7f); }
+		// 일반공격 AP+1
+		if (PlayerRef) { PlayerRef->Stats.AP = FMath::Clamp(PlayerRef->Stats.AP + 1.f, 0.f, 6.f); if (HUD) HUD->SetAP(PlayerRef->Stats.AP); HUD->ShowToast(TEXT("AP +1"), 0.7f); }
+		break;
+	case EPlayerCommand::Skill1:
+		if (BossRef) { BossRef->ApplyDamageToBoss(30.f); }
+		if (HUD) { HUD->ShowToast(TEXT("Skill1 -30"), 0.7f); }
+		break;
+	case EPlayerCommand::Skill2:
+		if (BossRef) { BossRef->ApplyDamageToBoss(30.f); }
+		if (HUD) { HUD->ShowToast(TEXT("Skill2 -30"), 0.7f); }
+		break;
+	case EPlayerCommand::Ultimate:
+		if (PlayerRef && PlayerRef->GetUltGauge() >= 100.f) {
+			if (BossRef) { BossRef->ApplyDamageToBoss(120.f); }
+			PlayerRef->AddUltGauge(-100.f);
+			if (HUD) { HUD->SetUlt(PlayerRef->GetUltGauge(), 100.f); HUD->ShowToast(TEXT("ULT! -120"), 0.9f); }
+		}
+		else {
+			if (HUD) { HUD->ShowToast(TEXT("Not enough ULT"), 0.6f); }
+			return;
+		}
+		break;
+	}
+	UpdateHUDSnapshot();
+	NotifyPlayerTurnDone();
+}
+
+void ABattleManager::OnParryToast()
+{
+	if (HUD) { HUD->ShowToast(TEXT("Block!  AP +1"), 0.8f); HUD->SetAP(PlayerRef ? PlayerRef->Stats.AP : 0.f); }
+}
+
+void ABattleManager::OnBossDealDmg(float Amount)
+{
+	if (HUD) { HUD->ShowToast(FString::Printf(TEXT("-%.0f"), Amount), 0.6f); }
+	UpdateHUDSnapshot();
 }

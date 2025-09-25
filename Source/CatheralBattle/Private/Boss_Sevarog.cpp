@@ -51,6 +51,7 @@ void ABoss_Sevarog::ApplyHitIfNotParried(APlayerCharacter* Target, int32 HitInde
 	{
 		const float Dmg = AtkPoint * FMath::Max(0.f, DamageMultiplier);
 		Target->TakeDamage(Dmg);
+		OnBossDealtDamage.Broadcast(Dmg);
 	}
 }
 

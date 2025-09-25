@@ -7,6 +7,8 @@ class ABoss_Sevarog;
 class APlayerCharacter;
 class UAnimMontage;
 
+DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnParrySuccess);
+
 UCLASS(ClassGroup = (Combat), meta = (BlueprintSpawnableComponent))
 class CATHERALBATTLE_API UParryComponent : public UActorComponent
 {
@@ -20,6 +22,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Parry|Anim") UAnimMontage* ParryMontage = nullptr;
 
 	UFUNCTION(BlueprintCallable, Category = "Parry") void OnParryPressed();
+	UPROPERTY(BlueprintAssignable, Category = "Parry") FOnParrySuccess OnParrySuccess;
 
 protected:
 	virtual void BeginPlay() override;
