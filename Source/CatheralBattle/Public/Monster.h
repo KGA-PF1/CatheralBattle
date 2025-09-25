@@ -38,6 +38,15 @@ public:
         UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 		int32 Speed = 300;// 이동 속도
 
+        UFUNCTION(BlueprintCallable, Category = "Stats")
+        float GetHp() { return CurrentHP; }
+        UFUNCTION(BlueprintCallable, Category = "Stats")
+        float GetMaxHp() { return MaxHP; }
+        UFUNCTION(BlueprintCallable, Category = "Stats")
+        float GetHpPercent() { return MaxHP > 0 ? CurrentHP / MaxHP : 0.f; }
+
+
+
         // 공격 범위 및 공격력 변수 추가
         UPROPERTY(EditAnywhere, Category = "Combat")
 		float AttackRange = 150.f;// 공격 범위 변수
@@ -67,8 +76,8 @@ public:
         // ==== 함수 ====
         UFUNCTION(BlueprintCallable, Category = "Monster")
 		void TakeDamageCustom(int32 DamageAmount);// 커스텀 데미지 함수
-      
-        
+
+       
 
     protected:
 		void OnDeath(); // 몬스터가 죽었을 때 처리 함수
