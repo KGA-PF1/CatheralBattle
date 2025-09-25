@@ -19,24 +19,29 @@ class CATHERALBATTLE_API AMonster : public ACharacter
 protected:
     virtual void BeginPlay() override;
     virtual void Tick(float DeltaTime) override;
+    virtual float TakeDamage(float DamageAmount,
+        struct FDamageEvent const& DamageEvent,
+        class AController* EventInstigator,
+        AActor* DamageCauser) override;
+
 public:
     AMonster();
 public:
         // ==== 스탯 ====
         UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-		int32 MaxHP = 25;// 기본 체력 25
-    
+        float MaxHP = 25.f; //최대체력
+
         UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stats")
-		int32 CurrentHP;// 현재 체력
-    
-        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-		int32 AttackPoint = 5;// 공격력
-    
-        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-		int32 UltGaugeReward = 5;// 처치시 주는 얼티 게이지
+        float CurrentHP; //현제 채력
 
         UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-		int32 Speed = 300;// 이동 속도
+        float AttackPoint = 5.f;//공격력
+
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+        float UltGaugeReward = 5.f;//궁국기 포인트
+
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+        float Speed = 300.f;//속도
 
         UFUNCTION(BlueprintCallable, Category = "Stats")
         float GetHp() { return CurrentHP; }
@@ -44,8 +49,6 @@ public:
         float GetMaxHp() { return MaxHP; }
         UFUNCTION(BlueprintCallable, Category = "Stats")
         float GetHpPercent() { return MaxHP > 0 ? CurrentHP / MaxHP : 0.f; }
-
-
 
         // 공격 범위 및 공격력 변수 추가
         UPROPERTY(EditAnywhere, Category = "Combat")
@@ -55,35 +58,29 @@ public:
         UPROPERTY(EditAnywhere, Category = "Combat")
 		float AttackCooldown = 5.f;// 공격 쿨타임 변수
 
-		bool bCanAttack = true; // 공격 가능 여부 변수
+        bool bCanAttack; // 공격 가능 여부 변수
 
+        void ResetAttackCooldown();// 공격 쿨타임 리셋 함수
+
+        void PerformAttack(); // 공격 함수
+
+        void OnDeath(); // 몬스터가 죽었을 때 처리 함수
+
+        void DestroyMonster(); // 몬스터 제거 함수
+        
         void OnSpawnAnimationFinished();
 
-        // 공격 함수 선언
-      
-        // 공격 쿨타임 리셋 함수
-		void ResetAttackCooldown();// 공격 쿨타임 리셋 함수
         FTimerHandle AttackTimerHandle;
+        FTimerHandle DeathTimerHandle;
 
         // ==== 이벤트 ====
         // 몬스터가 죽을 때 알림
         UPROPERTY(BlueprintAssignable, Category = "Monster")
-		FOnMonsterDeath OnMonsterDeath; // 몬스터가 죽을 때 알림 이벤트
-        
+        FOnMonsterDeath OnMonsterDeath; // 몬스터가 죽을 때 알림 이벤트
+		// 몬스터의 HP가 변경될 때 알림 (위젯에 브로드캐스트)
         UPROPERTY(BlueprintAssignable, Category = "Monster")
         FOnHpMonster OnHpMonster;
 
-        // ==== 함수 ====
-        UFUNCTION(BlueprintCallable, Category = "Monster")
-		void TakeDamageCustom(int32 DamageAmount);// 커스텀 데미지 함수
-
-       
-
-    protected:
-		void OnDeath(); // 몬스터가 죽었을 때 처리 함수
-		void DestroyMonster(); // 몬스터 제거 함수
-        
-        UFUNCTION(BlueprintCallable, Category = "Monster")
-		void PerformAttack();// 공격 함수
-		FTimerHandle DeathTimerHandle; // 죽음 후 제거 타이머 핸들
+    protected:	
+        void PlayAttackAnimation();
 };
