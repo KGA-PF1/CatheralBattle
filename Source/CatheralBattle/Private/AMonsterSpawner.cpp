@@ -1,102 +1,69 @@
-
-
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
 #include "AMonsterSpawner.h"
-#include "Kismet/GameplayStatics.h"
 #include "Engine/World.h"
-#include "DrawDebugHelpers.h"
-#include "GameFramework/Character.h"
-#include "TimerManager.h"
-#include "Engine/Engine.h"
 #include "AIController.h"
-#include "NavigationSystem.h"
-#include "NavigationPath.h"
-#include "Components/CapsuleComponent.h"
-#include "Monster.h"
+#include "MonsterAIController.h"
 
-// Sets default values
 AAMonsterSpawner::AAMonsterSpawner()
 {
- 	// Set this actor to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
-	PrimaryActorTick.bCanEverTick = true;
-
+	PrimaryActorTick.bCanEverTick = false;
+	SpawnRadius = 1000.f;
+	MaxMonsterCount = 6;
+	SpawnCenter = FVector::ZeroVector;
 }
 
-// Called when the game starts or when spawned
 void AAMonsterSpawner::BeginPlay()
 {
 	Super::BeginPlay();
 	SpawnInitialMonsters();
-	
-}
-
-void AAMonsterSpawner::SpawnMonsterAt(const FVector& Location)
-{
-
-	if (!MonsterClass) return;
-
-	FActorSpawnParameters SpawnParams;
-	AMonster* NewMonster = GetWorld()->SpawnActor<AMonster>(MonsterClass, Location, FRotator::ZeroRotator, SpawnParams);
-	if (NewMonster)
-	{
-		SpawnedMonsters.Add(NewMonster);
-        NewMonster->OnMonsterDeath.AddDynamic(this, &AAMonsterSpawner::OnMonsterKilled);
-		
-	}
-
-}
-
-FVector AAMonsterSpawner::GetRandomPointInRadius()
-{
-	FVector RandomOffset = FVector(
-		FMath::RandRange(-SpawnRadius, SpawnRadius),
-		FMath::RandRange(-SpawnRadius, SpawnRadius),
-		0.f);
-
-	return SpawnCenter + RandomOffset;
-}
-
-FVector AAMonsterSpawner::FindSpawnLocationAwayFromPlayer()
-{
-	APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(GetWorld(), 0);
-
-	FVector SpawnLoc;
-	do
-	{
-		SpawnLoc = GetRandomPointInRadius();
-	} while (PlayerPawn && FVector::Dist(PlayerPawn->GetActorLocation(), SpawnLoc) < MinDistanceFromPlayer);
-
-	return SpawnLoc;
-}
-
-void AAMonsterSpawner::OnMonsterKilled(AMonster* DeadMonster)
-{
-
-	SpawnedMonsters.Remove(DeadMonster);
-
-	FVector NewSpawnLoc = FindSpawnLocationAwayFromPlayer();
-
-	SpawnMonsterAt(NewSpawnLoc);
-
 }
 
 void AAMonsterSpawner::SpawnInitialMonsters()
 {
-
-	for (int i = 0; i < MaxMonsterCount; i++)
+	for (int32 i = 0; i < MaxMonsterCount; i++)
 	{
-		FVector SpawnLocation = GetRandomPointInRadius();
+		FVector SpawnLocation = GetRandomSpawnLocation();
 		SpawnMonsterAt(SpawnLocation);
 	}
-
 }
 
-//// Called every frame
-//void AAMonsterSpawner::Tick(float DeltaTime)
-//{
-//	Super::Tick(DeltaTime);
-//
-//}
+FVector AAMonsterSpawner::GetRandomSpawnLocation() const
+{
+	FVector Offset(FMath::RandRange(-SpawnRadius, SpawnRadius), FMath::RandRange(-SpawnRadius, SpawnRadius), 0.f);
+	return SpawnCenter + Offset;
+}
 
+void AAMonsterSpawner::SpawnMonsterAt(const FVector& Location)
+{
+	if (!MonsterClass) return;
+
+	FActorSpawnParameters SpawnParams;
+	AMonster* NewMonster = GetWorld()->SpawnActor<AMonster>(MonsterClass, Location, FRotator::ZeroRotator, SpawnParams);
+
+	if (NewMonster)
+	{
+		SpawnedMonsters.Add(NewMonster);
+
+		// AIController가 없으면 생성 후 몬스터 소유
+		AAIController* AIController = Cast<AAIController>(NewMonster->GetController());
+		if (!AIController)
+		{
+			AIController = GetWorld()->SpawnActor<AMonsterAIController>(AMonsterAIController::StaticClass());
+			if (AIController)
+				AIController->Possess(NewMonster);
+		}
+
+		// 몬스터 사망 이벤트 바인딩 대응하면 재생성 가능 (선택적)
+		// NewMonster->OnDeath.AddDynamic(this, &AAMonsterSpawner::OnMonsterDeath);
+	}
+}
+
+void AAMonsterSpawner::OnMonsterDeath(AMonster* DeadMonster)
+{
+	if (SpawnedMonsters.Contains(DeadMonster))
+	{
+		SpawnedMonsters.Remove(DeadMonster);
+
+		FVector RespawnLoc = GetRandomSpawnLocation();
+		SpawnMonsterAt(RespawnLoc);
+	}
+}
