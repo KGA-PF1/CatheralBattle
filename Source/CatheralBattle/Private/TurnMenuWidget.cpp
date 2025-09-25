@@ -41,3 +41,10 @@ void UTurnMenuWidget::UpdateVisuals()
 	SetHi(OptionSkill2, SelectedIndex == 2);
 	SetHi(OptionUltimate, SelectedIndex == 3, !bUltimateEnabled);
 }
+
+void UTurnMenuWidget::NativeConstruct()
+{
+	Super::NativeConstruct();
+	bIsFocusable = true;             // ★ 반드시
+	SetKeyboardFocus();              // 화면에 올라오자마자 포커스
+}

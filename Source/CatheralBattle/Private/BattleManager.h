@@ -59,6 +59,17 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Battle|UI")
 	TSubclassOf<UBattleHUDWidget> HUDClass;
 
+	// 플레이어 몽타주(기본 공격/스킬/궁극기)
+	UPROPERTY(EditAnywhere, Category = "Battle|PlayerMontage") UAnimMontage* PlayerAttackMontage = nullptr;
+	UPROPERTY(EditAnywhere, Category = "Battle|PlayerMontage") UAnimMontage* PlayerSkill1Montage = nullptr;
+	UPROPERTY(EditAnywhere, Category = "Battle|PlayerMontage") UAnimMontage* PlayerSkill2Montage = nullptr;
+	UPROPERTY(EditAnywhere, Category = "Battle|PlayerMontage") UAnimMontage* PlayerUltMontage = nullptr;
+
+	bool bWaitingForPlayerMontage = false;
+
+	UFUNCTION() void OnPlayerMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+	void PlayPlayerMontage(UAnimMontage* MontageToPlay);
+
 protected:
 	virtual void BeginPlay() override;
 

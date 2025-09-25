@@ -38,6 +38,8 @@ protected:
 	}
 	virtual FReply NativeOnKeyDown(const FGeometry& InGeo, const FKeyEvent& InKeyEvent) override;
 
+	virtual void NativeConstruct() override;
+
 private:
 	bool bUltimateEnabled = true;
 	void MoveSelection(int32 Delta);

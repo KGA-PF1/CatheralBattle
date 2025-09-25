@@ -39,7 +39,7 @@ void UBattleHUDWidget::UpdateAPPips(int32 FilledCount)
 	{
 		if (!APImages[i]) continue;
 		UTexture2D* Tex = (i < FilledCount) ? PipFilledTexture : PipEmptyTexture;
-		if (Tex) APImages[i]->SetBrushFromTexture(Tex, true);
+		if (Tex) APImages[i]->SetBrushFromTexture(Tex, false);
 		APImages[i]->SetRenderScale(i < FilledCount ? FVector2D(1.05f, 1.05f) : FVector2D(1.f, 1.f));
 	}
 }

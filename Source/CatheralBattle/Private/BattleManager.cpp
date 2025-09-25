@@ -20,16 +20,21 @@ ABattleManager::ABattleManager()
 void ABattleManager::BeginPlay()
 {
 	Super::BeginPlay();
-	if (!ParryProxy) { TryAutoWireProxy(); }
 
-	// UI 생성
-	if (HUDClass)
-	{
-		HUD = CreateWidget<UBattleHUDWidget>(GetWorld(), HUDClass);
-		if (HUD) { HUD->AddToViewport(0); }
-	}
+	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
 
-	if (bAutoStart) { StartBattle(); }
+	//if (HUDClass && PC && !HUD)
+	//{
+	//	HUD = CreateWidget<UBattleHUDWidget>(PC, HUDClass);   // ★ Owning Player!
+	//	if (HUD)
+	//	{
+	//		HUD->SetVisibility(ESlateVisibility::Visible);
+	//		HUD->AddToViewport(5);                             // ★ Z 높임
+	//		if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Green, TEXT("HUD SPAWNED"));
+	//	}
+	//}
+
+	if (bAutoStart) StartBattle();
 }
 
 void ABattleManager::Initialize(APlayerCharacter* InPlayer, ABoss_Sevarog* InBoss, AParryInputProxy* InProxy)
@@ -64,9 +69,21 @@ void ABattleManager::Initialize(APlayerCharacter* InPlayer, ABoss_Sevarog* InBos
 void ABattleManager::StartBattle()
 {
 	if (bRunning || !PlayerRef || !BossRef) return;
+
+	if ((!HUD || !HUD->IsInViewport()) && HUDClass)
+	{
+		if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
+		{
+			HUD = CreateWidget<UBattleHUDWidget>(PC, HUDClass);
+			if (HUD) { HUD->AddToViewport(50); HUD->SetVisibility(ESlateVisibility::Visible); }
+		}
+	}
 	bRunning = true;
 	LastPatternIdx = -1;
 	EnterPlayerTurn();
+
+	if (!HUDClass) { UE_LOG(LogTemp, Error, TEXT("[BM] HUDClass not set!")); }
+	if (!TurnMenuClass) { UE_LOG(LogTemp, Error, TEXT("[BM] TurnMenuClass not set!")); }
 }
 
 void ABattleManager::EndBattle()
@@ -171,7 +188,6 @@ void ABattleManager::BindRuntimeSignals() {
 	// Parry 성공 토스트: 플레이어의 ParryComponent 찾아 바인딩(있으면)
 }
 
-
 void ABattleManager::CheckEnd()
 {
 	if (!PlayerRef || !BossRef) { EndBattle(); return; }
@@ -179,39 +195,42 @@ void ABattleManager::CheckEnd()
 	if (BossRef->Hp <= 0.f) { EndBattle(); return; }
 }
 
-void ABattleManager::ShowPlayerUI(bool bShowMenu) {
+void ABattleManager::ShowPlayerUI(bool bShowMenu)
+{
 	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
 	if (!PC) return;
 
-	// HUD는 항상 보이게(이미 Add됨)
-	if (bShowMenu) {
-		if (!TurnMenu && TurnMenuClass) {
-			TurnMenu = CreateWidget<UTurnMenuWidget>(GetWorld(), TurnMenuClass);
-			if (TurnMenu) {
-				TurnMenu->AddToViewport(100);
-				// 궁극기 가능여부 세팅
-				bool bUlt = false;
-				if (PlayerRef) {
-					// PlayerCharacter에 게터가 있으면 사용
-					if constexpr (true) { /* 그냥 예시 블록 */ }
-					// 1) GetUltGauge()가 있으면:
-					if (PlayerRef->GetUltGauge() >= 100.f) bUlt = true;
-					// (만약 GetUltGauge가 없다면, 아래 3) 참고해서 게터 추가)
-				}
-				TurnMenu->SetUltimateEnabled(bUlt);
-
-				// Confirm → 실제 실행 → 토스트 → NotifyPlayerTurnDone
+	if (bShowMenu)
+	{
+		if (!TurnMenu && TurnMenuClass)
+		{
+			TurnMenu = CreateWidget<UTurnMenuWidget>(PC, TurnMenuClass); // ★ Owning Player
+			if (TurnMenu)
+			{
 				TurnMenu->OnConfirm.AddDynamic(this, &ABattleManager::HandleMenuConfirm);
+
+				TurnMenu->AddToViewport(100);                             // 메뉴 최상단
+				TurnMenu->SetUltimateEnabled(PlayerRef && PlayerRef->GetUltGauge() >= 100.f);
 			}
 		}
-		// 입력모드 UIOnly
-		FInputModeUIOnly M; M.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
-		PC->SetInputMode(M); PC->bShowMouseCursor = false;
+		if (TurnMenu)
+		{
+			FInputModeUIOnly M;
+			M.SetWidgetToFocus(TurnMenu->TakeWidget());                  // ★ 포커스 대상 지정
+			M.SetLockMouseToViewportBehavior(EMouseLockMode::DoNotLock);
+			PC->SetInputMode(M);
+			PC->bShowMouseCursor = false;
+
+			TurnMenu->SetVisibility(ESlateVisibility::Visible);
+			TurnMenu->SetIsEnabled(true);
+			TurnMenu->SetKeyboardFocus();                                 // ★ 백업 포커스
+			PC->SetShowMouseCursor(false);
+		}
 	}
-	else {
+	else
+	{
 		if (TurnMenu) { TurnMenu->RemoveFromParent(); TurnMenu = nullptr; }
-		// 입력모드 GameOnly (보스턴에 패링키만)
-		FInputModeGameOnly M; PC->SetInputMode(M); PC->bShowMouseCursor = false;
+		FInputModeGameOnly G; PC->SetInputMode(G); PC->bShowMouseCursor = false;
 	}
 }
 
@@ -264,4 +283,64 @@ void ABattleManager::OnBossDealDmg(float Amount)
 {
 	if (HUD) { HUD->ShowToast(FString::Printf(TEXT("-%.0f"), Amount), 0.6f); }
 	UpdateHUDSnapshot();
+}
+
+void ABattleManager::PlayPlayerMontage(UAnimMontage* MontageToPlay)
+{
+	if (!PlayerRef) { UE_LOG(LogTemp, Error, TEXT("[BM] PlayerRef nullptr")); NotifyPlayerTurnDone(); return; }
+	if (!MontageToPlay) { UE_LOG(LogTemp, Warning, TEXT("[BM] Montage null")); NotifyPlayerTurnDone(); return; }
+
+	USkeletalMeshComponent* Mesh = PlayerRef->GetMesh();
+	if (!Mesh) { UE_LOG(LogTemp, Error, TEXT("[BM] Player Mesh nullptr")); NotifyPlayerTurnDone(); return; }
+
+	// 스켈레톤 확인
+	if (MontageToPlay->GetSkeleton() != Mesh->GetSkeletalMeshAsset()->GetSkeleton())
+	{
+		UE_LOG(LogTemp, Error, TEXT("[BM] Skeleton mismatch: Montage=%s  Player=%s"),
+			*MontageToPlay->GetSkeleton()->GetName(),
+			*Mesh->GetSkeletalMeshAsset()->GetSkeleton()->GetName());
+		NotifyPlayerTurnDone();
+		return;
+	}
+
+	// 애님 인스턴스 확보
+	UAnimInstance* Anim = Mesh->GetAnimInstance();
+	if (!Anim) { UE_LOG(LogTemp, Error, TEXT("[BM] AnimInstance nullptr (Anim Class 미지정?)")); NotifyPlayerTurnDone(); return; }
+
+	// 슬롯 이름 로그(슬롯 불일치 디버그)
+	if (MontageToPlay->SlotAnimTracks.Num() > 0)
+	{
+		const FName SlotName = MontageToPlay->SlotAnimTracks[0].SlotName;
+		UE_LOG(LogTemp, Log, TEXT("[BM] Play Montage=%s Slot=%s"), *MontageToPlay->GetName(), *SlotName.ToString());
+	}
+
+	// 메뉴 숨기고 게임 입력으로
+	ShowPlayerUI(false);
+
+	// 중복 바인딩 방지
+	Anim->OnMontageEnded.RemoveDynamic(this, &ABattleManager::OnPlayerMontageEnded);
+	Anim->OnMontageEnded.AddDynamic(this, &ABattleManager::OnPlayerMontageEnded);
+
+	// 재생!
+	const float Len = Anim->Montage_Play(MontageToPlay, 1.0f);
+	if (Len <= 0.f)
+	{
+		UE_LOG(LogTemp, Error, TEXT("[BM] Montage_Play failed! (슬롯 미연결 또는 블렌드 규칙 충돌)"));
+		// 실패시 바로 턴 진행 막힘 방지
+		NotifyPlayerTurnDone();
+		return;
+	}
+
+	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Cyan, TEXT("PLAYER MONTAGE PLAY"));
+}
+
+
+void ABattleManager::OnPlayerMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	if (UAnimInstance* Anim = PlayerRef && PlayerRef->GetMesh() ? PlayerRef->GetMesh()->GetAnimInstance() : nullptr)
+	{
+		Anim->OnMontageEnded.RemoveDynamic(this, &ABattleManager::OnPlayerMontageEnded);
+	}
+	UpdateHUDSnapshot();
+	NotifyPlayerTurnDone();
 }
