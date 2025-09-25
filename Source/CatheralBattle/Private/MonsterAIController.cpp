@@ -8,6 +8,7 @@ void AMonsterAIController::BeginPlay()
 {
 	Super::BeginPlay();
 
+
 	if (AIBehavior != nullptr)
 	{
 		RunBehaviorTree(AIBehavior);
@@ -23,29 +24,27 @@ void AMonsterAIController::BeginPlay()
 void AMonsterAIController::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
+
 	APawn* PlayerPawn = UGameplayStatics::GetPlayerPawn(GetWorld(), 0);
-	if (PlayerPawn != nullptr)
+	if (!PlayerPawn) return;
+
+	APawn* MyPawn = GetPawn();
+	if (!MyPawn) return;
+
+	float Dist = FVector::Dist(PlayerPawn->GetActorLocation(), MyPawn->GetActorLocation());
+
+	if (Dist > AcceptanceRadius)
 	{
-		if (LineOfSightTo(PlayerPawn))
-		{
-			GetBlackboardComponent()->SetValueAsObject(TEXT("TargetActor"), PlayerPawn);
-			GetBlackboardComponent()->SetValueAsVector(
-				TEXT("LastKnownPlayerLocation"), PlayerPawn->GetActorLocation());
-		}
-		else
-		{
-			GetBlackboardComponent()->ClearValue(TEXT("TargetActor"));
-		}
+		MoveToActor(PlayerPawn, AcceptanceRadius);
+	}
+	else
+	{
+		StopMovement();
 	}
 }
 
 void AMonsterAIController::OnPossess(APawn* InPawn)
 {
 	Super::OnPossess(InPawn);
-
-	if (!InPawn) return;
-	UBlackboardComponent* BBComp = GetBlackboardComponent();
-	if (BBComp != nullptr)
-		BBComp->SetValueAsVector(TEXT("SpawnLocation"), InPawn->GetActorLocation());
 
 }
