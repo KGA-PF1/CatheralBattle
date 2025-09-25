@@ -102,7 +102,16 @@ void ABattleManager::EnterBossTurn() {
 	CurrentTurn = ETurn::Boss;
 	SetParryEnabled(true);
 	ShowPlayerUI(false);      // 메뉴 OFF
-	// ...기존 몽타주 선택/재생...
+
+	// ★ 패턴 선택 + 실제 재생
+	UAnimMontage* Chosen = nullptr;
+	if (BossPatternMontages.Num() > 0)
+	{
+		const int32 Idx = PickMontageIndex();
+		Chosen = BossPatternMontages[Idx];
+		LastPatternIdx = Idx;
+	}
+	if (BossRef) { BossRef->PlayPatternMontage(Chosen, PlayerRef); } // ← 몽타주 GO}
 }
 
 int32 ABattleManager::PickMontageIndex() const

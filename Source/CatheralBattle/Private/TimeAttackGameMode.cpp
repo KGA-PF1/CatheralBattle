@@ -1,12 +1,10 @@
-// Fill out your copyright notice in the Description page of Project Settings.
-
-
-#include "TimeAttackGameMode.h"
-
-// Fill out your copyright notice in the Description page of Project Settings.
-
+ï»¿// TimeAttackGameMode.cpp
 #include "TimeAttackGameMode.h"
 #include "Kismet/GameplayStatics.h"
+#include "BattleManager.h"
+#include "Boss_Sevarog.h"
+#include "ParryInputProxy.h"
+#include "PlayerCharacter.h"
 
 ATimeAttackGameMode::ATimeAttackGameMode()
 {
@@ -16,22 +14,49 @@ ATimeAttackGameMode::ATimeAttackGameMode()
 void ATimeAttackGameMode::BeginPlay()
 {
 	Super::BeginPlay();
-	TimeRemaining = InitialTime; // ½ÃÀÛÇÒ ¶§ ³²Àº ½Ã°£À» ÃÊ±â°ªÀ¸·Î ¼¼ÆÃ ¿À·ù¹æÁö~ 
+
+	// â˜… ì‹¤ì‹œê°„ UI ì‹¹ ì œê±°(í…ŒìŠ¤íŠ¸ ì „íˆ¬ë§Œ ë³´ê¸°)
+	//UWidgetBlueprintLibrary::RemoveAllWidgets(GetWorld());
+
+	// â˜… í”Œë ˆì´ì–´ í™•ë³´(ì—†ìœ¼ë©´ DefaultPawnClassë¥¼ PlayerCharacter BPë¡œ!)
+	APlayerCharacter* Player = Cast<APlayerCharacter>(UGameplayStatics::GetPlayerPawn(this, 0));
+	if (!Player) { UE_LOG(LogTemp, Error, TEXT("PlayerCharacter not possessed")); return; }
+
+	// â˜… ë³´ìŠ¤/í”„ë¡ì‹œ/BM ì°¾ê±°ë‚˜ ìŠ¤í°
+	ABoss_Sevarog* Boss = nullptr;
+	{
+		TArray<AActor*> Found; UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABoss_Sevarog::StaticClass(), Found);
+		Boss = Found.Num() > 0 ? Cast<ABoss_Sevarog>(Found[0]) : nullptr;
+		if (!Boss)
+		{
+			const FVector Loc = Player->GetActorLocation() + Player->GetActorForwardVector() * 800.f;
+			Boss = GetWorld()->SpawnActor<ABoss_Sevarog>(ABoss_Sevarog::StaticClass(), Loc, FRotator::ZeroRotator);
+		}
+	}
+	AParryInputProxy* Proxy = nullptr;
+	{
+		TArray<AActor*> Found; UGameplayStatics::GetAllActorsOfClass(GetWorld(), AParryInputProxy::StaticClass(), Found);
+		Proxy = Found.Num() > 0 ? Cast<AParryInputProxy>(Found[0]) : GetWorld()->SpawnActor<AParryInputProxy>();
+	}
+	ABattleManager* BM = nullptr;
+	{
+		TArray<AActor*> Found; UGameplayStatics::GetAllActorsOfClass(GetWorld(), ABattleManager::StaticClass(), Found);
+		BM = Found.Num() > 0 ? Cast<ABattleManager>(Found[0]) : GetWorld()->SpawnActor<ABattleManager>();
+	}
+
+	// â˜… ì´ˆê¸°í™” + ì¦‰ì‹œ ì‹œì‘
+	if (BM && Boss && Player)
+	{
+		BM->Initialize(Player, Boss, Proxy);
+		BM->StartBattle();
+	}
+
+	// íƒ€ì„ì–´íƒ íƒ€ì´ë¨¸ëŠ” í…ŒìŠ¤íŠ¸ì— ì˜í–¥ ì—†ì§€ë§Œ, ì™„ì „ ì •ì§€í•˜ë ¤ë©´:
+	PrimaryActorTick.bCanEverTick = false;
 }
 
 void ATimeAttackGameMode::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-
-	if (TimeRemaining > 0.f)
-	{
-		TimeRemaining -= DeltaSeconds;
-
-		if (TimeRemaining <= 0.f)
-		{
-			TimeRemaining = 0.f;
-			UE_LOG(LogTemp, Warning, TEXT("The time has come"));
-			// ¶§°¡ µÇ¾ú´Ù .. ¶ó´Â ÀÇ¹ÌÀÇ ¹®±¸ ½è¾î¿ä
-		}
-	}
+	// í…ŒìŠ¤íŠ¸ìš©: í•„ìš”ì—†ìœ¼ë©´ ë¹„ì›Œë‘ë©´ ë¨
 }
