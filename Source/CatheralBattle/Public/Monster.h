@@ -31,8 +31,8 @@ public:
         UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
         float MaxHP = 25.f; //최대체력
 
-        UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Stats")
-        float CurrentHP; //현제 채력
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+        float CurrentHP = 25.f; //현제 채력
 
         UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
         float AttackPoint = 5.f;//공격력
