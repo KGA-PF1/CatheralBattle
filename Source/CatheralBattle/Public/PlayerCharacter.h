@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+ï»¿// Fill out your copyright notice in the Description page of Project Settings.
 
 #pragma once
 
@@ -13,8 +13,10 @@ class UInputAction;
 class UAnimMontage;
 class UBoxComponent;
 struct FInputActionValue;
+class USphereComponent;
+class AMonster;
 
-//½ºÅ³ ÀÔ·Â
+//ìŠ¤í‚¬ ì…ë ¥
 UENUM(BlueprintType)
 enum class ESkillInput : uint8
 {
@@ -30,7 +32,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnCooldownUpdated, ESkillInput, 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCooldownEnded, ESkillInput, input);
 
 USTRUCT(BlueprintType)
-struct FPlayerStats //ÇÃ·¹ÀÌ¾î ½ºÅÈ ±¸Á¶Ã¼
+struct FPlayerStats //í”Œë ˆì´ì–´ ìŠ¤íƒ¯ êµ¬ì¡°ì²´
 {
 	GENERATED_BODY();
 
@@ -43,7 +45,7 @@ struct FPlayerStats //ÇÃ·¹ÀÌ¾î ½ºÅÈ ±¸Á¶Ã¼
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float Speed = 400.f;
 
-	//TODO: ÀüÅõ °ü·Ã(±Ã±Ø±â °ÔÀÌÁö, AP) ±¸Çö
+	//TODO: ì „íˆ¬ ê´€ë ¨(ê¶ê·¹ê¸° ê²Œì´ì§€, AP) êµ¬í˜„
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float UltGauge = 0.f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
@@ -61,11 +63,11 @@ struct FSkillSpec
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat|Skill")
 	UAnimMontage* Montage = nullptr;
 
-	//¼½¼Ç ºĞ±â ÇÊ¿äÇÏ¸é ÁÖ¼® ÇØÁ¦
+	//ì„¹ì…˜ ë¶„ê¸° í•„ìš”í•˜ë©´ ì£¼ì„ í•´ì œ
 	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Skill")
 	//FName MontageSection;
 
-	//ÀüÅõ ¶§ ¾²ÀÏ °ª
+	//ì „íˆ¬ ë•Œ ì“°ì¼ ê°’
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat|Skill")
 	float DamageMultiplier = 1.f;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat|Skill")
@@ -73,7 +75,7 @@ struct FSkillSpec
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat|Skill")
 	int32 APCost = 0;
 
-	//¹«±â È÷Æ®¹Ú½º »ç¿ëÇÒ ¶§ (AnimNotifyState¿¡¼­ On, Off)
+	//ë¬´ê¸° íˆíŠ¸ë°•ìŠ¤ ì‚¬ìš©í•  ë•Œ (AnimNotifyStateì—ì„œ On, Off)
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat|HitBox")
 	bool bUseWeaponHitBox = true;
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat|HitBox", meta = (EditCondition = "bUseWeaponHitBox"))
@@ -83,7 +85,7 @@ struct FSkillSpec
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Combat|HitBox", meta = (EditCondition = "bUseWeaponHitBox"))
 	FRotator BoxRelRotation = FRotator::ZeroRotator;
 
-	//Æ®·¹ÀÌ½º ¹æ½Ä(±¤¿ª µî) »ç¿ëÇÏ·Á¸é ÁÖ¼® ÇØÁ¦
+	//íŠ¸ë ˆì´ìŠ¤ ë°©ì‹(ê´‘ì—­ ë“±) ì‚¬ìš©í•˜ë ¤ë©´ ì£¼ì„ í•´ì œ
 	//UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Trace")
 	//bool bUseTrace = false;
 
@@ -94,7 +96,7 @@ struct FSkillSpec
 	//float TraceRange = 300.f;
 };
 
-//TODO: Weapon ¼ÒÄÏ¿¡ Äİ¸®Àü ¹Ú½º ÇÒ´ç
+//TODO: Weapon ì†Œì¼“ì— ì½œë¦¬ì „ ë°•ìŠ¤ í• ë‹¹
 
 UCLASS()
 class CATHERALBATTLE_API APlayerCharacter : public ACharacter
@@ -188,9 +190,9 @@ public:
 
 
 
-	//Event º¯¼öµé
+	//Event ë³€ìˆ˜ë“¤
 #pragma region Event
-	//Hp - OnDeath?ÇÊ¿ä
+	//Hp - OnDeath?í•„ìš”
 	UPROPERTY(BlueprintAssignable, Category = "Event")
 	FOnHpChanged OnHpChanged;
 	UPROPERTY(BlueprintAssignable, Category = "Event")
@@ -201,7 +203,7 @@ public:
 	FOnCooldownEnded OnCooldownEnded;
 #pragma endregion
 
-	//UI¸¦ À§ÇÑ Getter
+	//UIë¥¼ ìœ„í•œ Getter
 #pragma region UI Binding Function
 	//HP
 	UFUNCTION(BlueprintCallable, Category = "Stats")
@@ -210,8 +212,8 @@ public:
 	float GetMaxHp() { return Stats.MaxHp; }
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	float GetHpPercent() { return Stats.MaxHp > 0 ? Stats.Hp / Stats.MaxHp : 0.f; }
-	
-	//±Ã±Ø±â
+
+	//ê¶ê·¹ê¸°
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	float GetUltGauge() { return Stats.UltGauge; }
 	UFUNCTION(BlueprintCallable, Category = "Stats")
@@ -219,24 +221,24 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	float GetUltGaugePercent() { return Stats.MaxUltGauge > 0 ? Stats.UltGauge / Stats.MaxUltGauge : 0.f; }
 
-	//ÄğÅ¸ÀÓ
-	UFUNCTION(BlueprintPure, Category="Skill|Cooldown")
+	//ì¿¨íƒ€ì„
+	UFUNCTION(BlueprintPure, Category = "Skill|Cooldown")
 	float GetCooldownRemaining(ESkillInput Input) const;
-	UFUNCTION(BlueprintPure, Category="Skill|Cooldown")
+	UFUNCTION(BlueprintPure, Category = "Skill|Cooldown")
 	float GetCooldownDuration(ESkillInput Input) const;
-	UFUNCTION(BlueprintPure, Category="Skill|Cooldown")
+	UFUNCTION(BlueprintPure, Category = "Skill|Cooldown")
 	float GetCooldownPercent(ESkillInput Input) const;
 #pragma endregion
 public:
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	bool IsDead() const { return Stats.Hp <= 0; }
-	//TODO: ApplyDamage ÇÊ¿äÇÏ¸é º¯°æ
+	//TODO: ApplyDamage í•„ìš”í•˜ë©´ ë³€ê²½
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	void TakeDamage(float Damage);
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	void Respawn();
 	//UltGauge
-	//TODO: ¸ó½ºÅÍ Á×À» ¶§ AddUltGaugeÇÏ°Ô²û
+	//TODO: ëª¬ìŠ¤í„° ì£½ì„ ë•Œ AddUltGaugeí•˜ê²Œë”
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	void AddUltGauge(float Amount);
 
@@ -245,12 +247,12 @@ public:
 
 
 
-	//½ºÅ³ °ü·Ã ÄÚµåµé
+	//ìŠ¤í‚¬ ê´€ë ¨ ì½”ë“œë“¤
 #pragma region Skill Code
-	//TODO: UltGauge°¡ MaxUltGaugeÀÌ¿©¾ß ±Ã±Ø±â ÇÏµµ·Ï
-	//TODO: UltGauge 0À¸·Î ¸¸µé±â
+	//TODO: UltGaugeê°€ MaxUltGaugeì´ì—¬ì•¼ ê¶ê·¹ê¸° í•˜ë„ë¡
+	//TODO: UltGauge 0ìœ¼ë¡œ ë§Œë“¤ê¸°
 public:
-	UPROPERTY(BlueprintReadWrite, Category="State")
+	UPROPERTY(BlueprintReadWrite, Category = "State")
 	bool bCanAttack = true;
 
 	UFUNCTION(BlueprintCallable, Category = "Skill")
@@ -264,7 +266,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Skill")
 	bool TryUseUlt() { return TryUseSkill(ESkillInput::Ult_R); }
 
-	//Input ¹ÙÀÎµù
+	//Input ë°”ì¸ë”©
 	UFUNCTION() void Input_Attack();
 	UFUNCTION() void Input_SkillQ();
 	UFUNCTION() void Input_SkillE();
@@ -274,50 +276,40 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
 	bool bTurnBased = false;
 
-	//¹«±â È÷Æ®¹Ú½º
+	//ë¬´ê¸° íˆíŠ¸ë°•ìŠ¤
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|Weapon")
-	UBoxComponent* Sword;
+	UBoxComponent* Weapon;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Combat|Weapon")
-	FName WeaponSocketName = TEXT("sword_top"); //TODO: ¼ÒÄÏ ÀÌ¸§ ¾Ë¾Æ¿À±â
+	FName WeaponSocketName = TEXT("sword_top"); //TODO: ì†Œì¼“ ì´ë¦„ ì•Œì•„ì˜¤ê¸°
 
-	//¹æÆĞ È÷Æ®¹Ú½º
+	//ë°©íŒ¨ íˆíŠ¸ë°•ìŠ¤
 	//UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category="Combat|Shield")
 	//UBoxComponent* Shield;
 	//UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Combat|Shield")
 	//FName ShieldSocketName = TEXT("shield_inner");
 
 
-	//AnimNotify¿¡¼­ ¾µ On, Off
+	//AnimNotifyì—ì„œ ì“¸ On, Off
 	UFUNCTION(BlueprintCallable, Category = "Combat|Notify")
 	void AN_Sword_On();
 	UFUNCTION(BlueprintCallable, Category = "Combat|Notify")
 	void AN_Sword_Off();
 
 protected:
-	//ÀÔ·Â -> ½ºÅ³½ºÆå Á¶È¸ -> (Äğ/AP Ã¼Å©) -> ¸ùÅ¸ÁÖ Àç»ı
+	//ì…ë ¥ -> ìŠ¤í‚¬ìŠ¤í™ ì¡°íšŒ -> (ì¿¨/AP ì²´í¬) -> ëª½íƒ€ì£¼ ì¬ìƒ
 	bool InternalUseSkill(const FSkillSpec& Spec, ESkillInput InputKind);
 
-	//Äğ´Ù¿î °¨¼Ò
+	//ì¿¨ë‹¤ìš´ ê°ì†Œ
 	void UpdateCooldowns(float DeltaSeconds);
 
-	//¸ùÅ¸ÁÖ Àç»ı À¯Æ¿
+	//ëª½íƒ€ì£¼ ì¬ìƒ ìœ í‹¸
 	void PlaySkillMontage(const FSkillSpec& Spec);
 
-	//Overlap¿ë
-	UFUNCTION()
-	void OnWeaponBeginOverlap(
-		UPrimitiveComponent* OverlappedComp,
-		AActor* OtherActor,
-		UPrimitiveComponent* OtherComp,
-		int32 OtherBodyIndex,
-		bool bFromSweep,
-		const FHitResult& Sweep);
-
-	//ÄğÅ¸ÀÓ
+	//ì¿¨íƒ€ì„
 	TMap<ESkillInput, float> CooldownTimers;
 	void BroadcastCooldown(ESkillInput Input, float Remaining, float Duration);
 
-private: //½ºÅ³ Q ÀÔ·Â¸·±â
+private: //ìŠ¤í‚¬ Q ì…ë ¥ë§‰ê¸°
 	FTimerHandle MovementLockStartHandle;
 	UPROPERTY() UAnimMontage* ActiveSkillMontage = nullptr;
 	bool bMoveInputLocked = false;
@@ -330,4 +322,64 @@ private: //½ºÅ³ Q ÀÔ·Â¸·±â
 	void UnLockMoveInput();
 #pragma endregion
 
+	//ì˜¤ë²„ë© ê´€ë ¨ ì½”ë“œë“¤
+#pragma region Overlap
+private:
+	//AN_Sword_On ~ Offë™ì•ˆ ì¤‘ë³µ íƒ€ê²© ë°©ì§€
+	TSet<TWeakObjectPtr<AActor>> HitActorsThisSwing;
+
+public:
+	float CalcAttackDamage() const;
+
+	//QìŠ¤í‚¬
+	UFUNCTION(BlueprintCallable, Category = "Combat|AoE")
+	void AN_QSkillCircle(float Radius, float Damage);
+	//EìŠ¤í‚¬
+	UFUNCTION(BlueprintCallable, Category = "Combat|AoE")
+	void AN_ESkillCircle(float Radius, float Damage);
+
+	//E ë„íŠ¸ë”œ(ì´ˆë‹¹)
+	UFUNCTION(BlueprintCallable, Category = "Combat|AoE")
+	void AN_StartPersistentAoE(float Radius, float DamagePerSecond, float TickInterval, float LifetimeSec);
+	UFUNCTION(BlueprintCallable, Category = "Combat|AoE")
+	void AN_EndPersistentAoE();
+
+	//Overlapìš©
+	UFUNCTION()
+	void OnWeaponBeginOverlap(
+		UPrimitiveComponent* OverlappedComp,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		int32 OtherBodyIndex,
+		bool bFromSweep,
+		const FHitResult& Sweep);
+
+	//Overlapê´€ë¦¬
+	UFUNCTION()
+	void OnPersistentAoEBeginOverlap(
+		UPrimitiveComponent* Comp,
+		AActor* Other,
+		UPrimitiveComponent* OtherComp,
+		int32 BodyIndex,
+		bool bFromSweep,
+		const FHitResult& Sweep);
+
+	UFUNCTION()
+	void OnPersistentAoEEndOverlap(
+		UPrimitiveComponent* Comp,
+		AActor* Other,
+		UPrimitiveComponent* OtherComp,
+		int32 BodyIndex);
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Combat|AoE")
+	USphereComponent* PersistentAoEComp = nullptr;
+
+	TSet<TWeakObjectPtr<AMonster>> PersistentAoEActors;
+	FTimerHandle PersistentAoE_TickTimer;
+	FTimerHandle PersistentAoE_LifeTimer;
+
+	float Persistent_Damage = 0.f;
+	float Persistent_TickInterval = 1.f;
+	void DealPersistentAoEDamage();
+#pragma endregion
 };
