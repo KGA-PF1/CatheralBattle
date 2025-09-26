@@ -12,9 +12,9 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "Components/BoxComponent.h"
+#include "Components/SphereComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Monster.h"
-#include "Components/SphereComponent.h"
 
 APlayerCharacter::APlayerCharacter()
 {
@@ -40,6 +40,7 @@ APlayerCharacter::APlayerCharacter()
 	GetCharacterMovement()->BrakingDecelerationFalling = 1500.0f;
 	GetCharacterMovement()->GravityScale = 1.75f;
 
+
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
@@ -54,11 +55,30 @@ APlayerCharacter::APlayerCharacter()
 	//무기 히트박스
 	Weapon = CreateDefaultSubobject<UBoxComponent>(TEXT("Sword"));
 	Weapon->SetupAttachment(GetMesh());
+	Weapon->InitBoxExtent(FVector(10, 10, 80));
 	Weapon->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	Weapon->SetGenerateOverlapEvents(true);
 	Weapon->SetCollisionObjectType(ECC_WorldDynamic);
 	Weapon->SetCollisionResponseToAllChannels(ECR_Ignore);
 	Weapon->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	Weapon->SetGenerateOverlapEvents(true);
+
+	//QSphere = CreateDefaultSubobject<USphereComponent>(TEXT("QSphere"));
+	//QSphere->SetupAttachment(GetRootComponent());      // 필요하면 소켓에 붙여도 됨
+	//QSphere->InitSphereRadius(300.f);
+	//QSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	//QSphere->SetCollisionObjectType(ECC_WorldDynamic);
+	//QSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
+	//QSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	//QSphere->SetGenerateOverlapEvents(true);
+
+	//ESphere = CreateDefaultSubobject<USphereComponent>(TEXT("ESphere"));
+	//ESphere->SetupAttachment(GetRootComponent());
+	//ESphere->InitSphereRadius(420.f);
+	//ESphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	//ESphere->SetCollisionObjectType(ECC_WorldDynamic);
+	//ESphere->SetCollisionResponseToAllChannels(ECR_Ignore);
+	//ESphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	//ESphere->SetGenerateOverlapEvents(true);
 }
 
 void APlayerCharacter::BeginPlay()
@@ -88,6 +108,10 @@ void APlayerCharacter::BeginPlay()
 		);
 		Weapon->OnComponentBeginOverlap.AddDynamic(this, &APlayerCharacter::OnWeaponBeginOverlap);
 	}
+	//if(QSphere)
+	//	QSphere->OnComponentBeginOverlap.AddDynamic(this, &APlayerCharacter::OnWeaponBeginOverlap);
+	//if(ESphere)
+	//	ESphere->OnComponentBeginOverlap.AddDynamic(this, &APlayerCharacter::OnWeaponBeginOverlap);
 
 	//초기 쿨다운 0
 	for (const auto& Pair : SkillTable)
@@ -250,21 +274,25 @@ bool APlayerCharacter::TryUseSkill(ESkillInput InputKind)
 
 void APlayerCharacter::Input_Attack()
 {
+	CurrentSkill = ESkillInput::Attack;
 	TryUseAttack();
 }
 
 void APlayerCharacter::Input_SkillQ()
 {
+	CurrentSkill = ESkillInput::Skill_Q;
 	TryUseSkillQ();
 }
 
 void APlayerCharacter::Input_SkillE()
 {
+	CurrentSkill = ESkillInput::Skill_E;
 	TryUseSkillE();
 }
 
 void APlayerCharacter::Input_Ult()
 {
+	CurrentSkill = ESkillInput::Ult_R;
 	if (Stats.UltGauge)
 		TryUseUlt();
 }
@@ -273,6 +301,7 @@ void APlayerCharacter::AN_Sword_On()
 {
 	if (Weapon)
 	{
+		CurrentSkill = ESkillInput::Attack;
 		HitActorsThisSwing.Reset();
 		Weapon->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	}
@@ -282,6 +311,7 @@ void APlayerCharacter::AN_Sword_Off()
 {
 	if (Weapon)
 	{
+		CurrentSkill = ESkillInput::None;
 		Weapon->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 }
@@ -430,7 +460,100 @@ void APlayerCharacter::OnWeaponBeginOverlap(UPrimitiveComponent* OverlappedComp,
 
 		HitActorsThisSwing.Add(DamagedActor);
 	}
+}
 
+void APlayerCharacter::ExecuteAOEAttack()
+{
+	const float Damage = CalcAttackDamage();
+	const float Range = CalcAttackRange();
+
+	UWorld* World = GetWorld();
+	if (!World)
+		return;
+
+	FVector AttackCenter;
+	if (CurrentSkill == ESkillInput::Skill_Q)
+	{
+		FName SkillWeaponSocketName = TEXT("FX_Sword_Top");
+		if (GetMesh() && GetMesh()->DoesSocketExist(SkillWeaponSocketName))
+		{
+			AttackCenter = GetMesh()->GetSocketLocation(SkillWeaponSocketName);
+		}
+	}
+	// 공격 중심 위치 (캐릭터 위치)
+	else
+	{
+		AttackCenter = GetActorLocation();
+	}
+
+	// 오버랩할 액터들 저장할 배열
+	TArray<FOverlapResult> OverlapResults;
+
+	// 충돌 쿼리 파라미터 설정
+	FCollisionQueryParams QueryParams;
+	QueryParams.AddIgnoredActor(this); // 자기 자신 제외
+
+	// 충돌 체크할 오브젝트 타입 설정
+	FCollisionObjectQueryParams ObjectQueryParams;
+	ObjectQueryParams.AddObjectTypesToQuery(ECC_Pawn);
+
+	// 구체 범위 내의 액터들 검색 (즉발)
+	bool bHasHit = World->OverlapMultiByObjectType(
+		OverlapResults,
+		AttackCenter,
+		FQuat::Identity,
+		ObjectQueryParams,
+		FCollisionShape::MakeSphere(Range),
+		QueryParams
+	);
+
+	// 히트한 액터들 처리
+	if (bHasHit)
+	{
+		//액터 중복 제거
+		TSet<AActor*> UniqueActors;
+		for (const FOverlapResult& Result : OverlapResults)
+		{
+			if (AActor* HitActor = Result.GetActor())
+			{
+				UniqueActors.Add(HitActor);
+			}
+		}
+
+		for (AActor* Actor : UniqueActors)
+		{
+			// Monster 타입인지 확인
+			AMonster* Monster = Cast<AMonster>(Actor);
+			if (Monster)
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Successfully damaged actor: %s"), *Monster->GetName());
+				// 데미지 적용 (ApplyDamage만 사용)
+				UGameplayStatics::ApplyDamage(
+					Monster,
+					Damage,
+					GetController(),
+					this,
+					UDamageType::StaticClass()
+				);
+			}
+		}
+
+
+	}
+
+	// 디버그 시각화
+	if (bShowDebugSphere)
+	{
+		DrawDebugSphere(
+			World,
+			AttackCenter,
+			Range,
+			24,
+			FColor::Red,
+			false,
+			5.0f
+		);
+	}
 }
 
 void APlayerCharacter::BroadcastCooldown(ESkillInput Input, float Remaining, float Duration)
@@ -474,157 +597,19 @@ void APlayerCharacter::UnLockMoveInput()
 float APlayerCharacter::CalcAttackDamage() const
 {
 	//실제 데미지 계산
-	const FSkillSpec* Basic = SkillTable.Find(ESkillInput::Attack);
-	const float Mult = Basic ? FMath::Max(0.f, Basic->DamageMultiplier) : 1.f;
+	const FSkillSpec* Basic = SkillTable.Find(CurrentSkill);
+	const float Mult = Basic ? FMath::Max(1.f, Basic->DamageMultiplier) : 1.f;
 	return FMath::Max(0.f, Stats.AtkPoint * Mult);
 }
 
-void APlayerCharacter::AN_QSkillCircle(float Radius, float Damage)
+float APlayerCharacter::CalcAttackRange() const
 {
-	if (Radius <= 0.f || Damage <= 0.f || !GetMesh()) return;
 
-	UWorld* World = GetWorld();
-	if (!World) return;
-
-	//AMonster만 뽑아오는 클래스 필터
-	TArray<TSubclassOf<AActor>> ClassFilter;
-	ClassFilter.Add(AMonster::StaticClass());
-
-	TArray<AActor*> Ignore;
-	Ignore.Add(this); //플레이어 무시
-
-	TArray<AActor*> OutActors;
-	const FVector Center = GetActorLocation();
-
-	const bool bHit = UKismetSystemLibrary::SphereOverlapActors(
-		World, Center, Radius,
-		TArray<TEnumAsByte<EObjectTypeQuery>>(),
-		nullptr,
-		Ignore, OutActors
-	);
-
-	if (!bHit) return;
-
-	AController* InstigatorCtrl = GetController();
-	for (AActor* A : OutActors)
+	switch (CurrentSkill)
 	{
-		if (AMonster* M = Cast<AMonster>(A))
-		{
-			UGameplayStatics::ApplyDamage(M, Damage, InstigatorCtrl, this, UDamageType::StaticClass());
-			UE_LOG(LogTemp, Warning, TEXT("QQQQQQQQQSuccessfully damaged actor: %s"), *M->GetName());
-		}
+	case ESkillInput::Skill_Q: return QSkillRange;
+	case ESkillInput::Skill_E: return ESkillRange;
+	default: return 0.f;
 	}
 }
 
-void APlayerCharacter::AN_ESkillCircle(float Radius, float Damage)
-{
-	//Radius랑 Damage만 다름
-	AN_QSkillCircle(Radius, Damage);
-}
-
-void APlayerCharacter::AN_StartPersistentAoE(float Radius, float DamagePerSecond, float TickInterval, float LifetimeSec)
-{
-	if (Radius <= 0.f || DamagePerSecond <= 0.f || TickInterval <= 0.f) return;
-
-	UWorld* World = GetWorld();
-	if (!World) return;
-
-	AN_EndPersistentAoE();
-
-	PersistentAoEComp = NewObject<USphereComponent>(this, TEXT("PersistentAoE"));
-	PersistentAoEComp->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
-	PersistentAoEComp->SetSphereRadius(Radius);
-	PersistentAoEComp->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	PersistentAoEComp->SetCollisionObjectType(ECC_WorldDynamic);
-	PersistentAoEComp->SetGenerateOverlapEvents(true);
-
-	//Pawn(몬스터 캡슐)과 Overlap 되게
-	PersistentAoEComp->SetCollisionResponseToAllChannels(ECR_Ignore);
-	PersistentAoEComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-
-	PersistentAoEComp->RegisterComponent();
-
-	PersistentAoEComp->OnComponentBeginOverlap.AddDynamic(this, &APlayerCharacter::OnPersistentAoEBeginOverlap);
-	PersistentAoEComp->OnComponentEndOverlap.AddDynamic(this, &APlayerCharacter::OnPersistentAoEEndOverlap);
-
-	//파라미터 저장
-	Persistent_Damage = DamagePerSecond;
-	Persistent_TickInterval = TickInterval;
-
-	//Tick 타이머 시작
-	GetWorldTimerManager().SetTimer(
-		PersistentAoE_TickTimer,
-		this,
-		&APlayerCharacter::DealPersistentAoEDamage,
-		TickInterval, true, TickInterval
-	);
-
-	//수명 타이머
-	if (LifetimeSec > 0.f)
-	{
-		GetWorldTimerManager().SetTimer(
-			PersistentAoE_LifeTimer,
-			this,
-			&APlayerCharacter::AN_EndPersistentAoE,
-			LifetimeSec, false
-		);
-	}
-}
-
-void APlayerCharacter::AN_EndPersistentAoE()
-{
-	//타이머 정리
-	GetWorldTimerManager().ClearTimer(PersistentAoE_TickTimer);
-	GetWorldTimerManager().ClearTimer(PersistentAoE_LifeTimer);
-
-	//컴포넌트, 집합 정리
-	if (PersistentAoEComp)
-	{
-		PersistentAoEComp->OnComponentBeginOverlap.RemoveAll(this);
-		PersistentAoEComp->OnComponentEndOverlap.RemoveAll(this);
-		PersistentAoEComp->DestroyComponent();
-		PersistentAoEComp = nullptr;
-	}
-
-	PersistentAoEActors.Reset();
-	Persistent_Damage = 0.f;
-	Persistent_TickInterval = 1.f;
-}
-
-void APlayerCharacter::OnPersistentAoEBeginOverlap(UPrimitiveComponent* Comp, AActor* Other, UPrimitiveComponent* OtherComp, int32 BodyIndex, bool bFromSweep, const FHitResult& Sweep)
-{
-	if (AMonster* M = Cast<AMonster>(Other))
-	{
-		PersistentAoEActors.Add(M);
-	}
-}
-
-void APlayerCharacter::OnPersistentAoEEndOverlap(UPrimitiveComponent* Comp, AActor* Other, UPrimitiveComponent* OtherComp, int32 BodyIndex)
-{
-	if (AMonster* M = Cast<AMonster>(Other))
-	{
-		PersistentAoEActors.Remove(M);
-	}
-}
-
-void APlayerCharacter::DealPersistentAoEDamage()
-{
-	if (Persistent_Damage <= 0.f || Persistent_TickInterval <= 0.f) return;
-	const float DamagePerTick = Persistent_Damage * Persistent_TickInterval;
-	if (DamagePerTick <= 0.f) return;
-
-	AController* InstigatorCtrl = GetController();
-
-	//집합 순회하며 유효한 몬스터만 타격
-	TArray<TWeakObjectPtr<AMonster>> ToRemove;
-	for (const TWeakObjectPtr<AMonster>& WeakM : PersistentAoEActors)
-	{
-		AMonster* M = WeakM.Get();
-		if (!IsValid(M)) { ToRemove.Add(WeakM); continue; }
-
-		UGameplayStatics::ApplyDamage(M, DamagePerTick, InstigatorCtrl, this, UDamageType::StaticClass());
-	}
-
-	//무효 포인터 제거
-	for (const auto& W : ToRemove) { PersistentAoEActors.Remove(W); }
-}
