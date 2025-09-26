@@ -1,4 +1,4 @@
-Ôªø// Fill out your copyright notice in the Description page of Project Settings.
+// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "PlayerCharacter.h"
@@ -12,9 +12,8 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "Components/BoxComponent.h"
-#include "Kismet/GameplayStatics.h"
-#include "Monster.h"
-#include "Components/SphereComponent.h"
+
+
 
 APlayerCharacter::APlayerCharacter()
 {
@@ -51,14 +50,14 @@ APlayerCharacter::APlayerCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 
-	//Î¨¥Í∏∞ ÌûàÌä∏Î∞ïÏä§
-	Weapon = CreateDefaultSubobject<UBoxComponent>(TEXT("Sword"));
-	Weapon->SetupAttachment(GetMesh());
-	Weapon->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	Weapon->SetGenerateOverlapEvents(true);
-	Weapon->SetCollisionObjectType(ECC_WorldDynamic);
-	Weapon->SetCollisionResponseToAllChannels(ECR_Ignore);
-	Weapon->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	//π´±‚ »˜∆Æπ⁄Ω∫
+	Sword = CreateDefaultSubobject<UBoxComponent>(TEXT("Sword"));
+	Sword->SetupAttachment(GetMesh());
+	Sword->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Sword->SetGenerateOverlapEvents(true);
+	Sword->SetCollisionObjectType(ECC_WorldDynamic);
+	Sword->SetCollisionResponseToAllChannels(ECR_Ignore);
+	Sword->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 }
 
 void APlayerCharacter::BeginPlay()
@@ -78,18 +77,18 @@ void APlayerCharacter::BeginPlay()
 		}
 	}
 
-	//Î¨¥Í∏∞ ÌûàÌä∏Î∞ïÏä§
-	if (Weapon && GetMesh())
+	//π´±‚ »˜∆Æπ⁄Ω∫
+	if (Sword && GetMesh())
 	{
-		Weapon->AttachToComponent(
+		Sword->AttachToComponent(
 			GetMesh(),
 			FAttachmentTransformRules::SnapToTargetNotIncludingScale,
 			WeaponSocketName
 		);
-		Weapon->OnComponentBeginOverlap.AddDynamic(this, &APlayerCharacter::OnWeaponBeginOverlap);
+		Sword->OnComponentBeginOverlap.AddDynamic(this, &APlayerCharacter::OnWeaponBeginOverlap);
 	}
 
-	//Ï¥àÍ∏∞ Ïø®Îã§Ïö¥ 0
+	//√ ±‚ ƒ¥ŸøÓ 0
 	for (const auto& Pair : SkillTable)
 	{
 		CooldownTimers.Add(Pair.Key, 0.f);
@@ -121,7 +120,7 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &APlayerCharacter::StartSprint);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &APlayerCharacter::StopSprint);
 
-		//Í≥µÍ≤© Í¥ÄÎ†®
+		//∞¯∞› ∞¸∑√
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_Attack);
 		EnhancedInputComponent->BindAction(SkillQAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_SkillQ);
 		EnhancedInputComponent->BindAction(SkillEAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_SkillE);
@@ -265,61 +264,60 @@ void APlayerCharacter::Input_SkillE()
 
 void APlayerCharacter::Input_Ult()
 {
-	if (Stats.UltGauge)
-		TryUseUlt();
+	if(Stats.UltGauge)
+	TryUseUlt();
 }
 
 void APlayerCharacter::AN_Sword_On()
 {
-	if (Weapon)
+	if (Sword)
 	{
-		HitActorsThisSwing.Reset();
-		Weapon->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		Sword->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	}
 }
 
 void APlayerCharacter::AN_Sword_Off()
 {
-	if (Weapon)
+	if (Sword)
 	{
-		Weapon->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Sword->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
 }
 
 bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput InputKind)
 {
-	//Î™ΩÌÉÄÏ£º ÏóÜÎäî Ïä§ÌÇ¨ Î¨¥Ïãú
+	//∏˘≈∏¡÷ æ¯¥¬ Ω∫≈≥ π´Ω√
 	if (!Spec.Montage) return false;
 
-	//Ï§ëÎ≥µ ÏãúÏ†Ñ Î∞©ÏßÄ
+	//¡ﬂ∫π Ω√¿¸ πÊ¡ˆ
 	if (UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
 	{
 		if (Anim->IsAnyMontagePlaying()) return false;
 	}
 
-	//Í∞ÑÎã® Ïø®ÌÉÄÏûÑ Ï≤¥ÌÅ¨
+	//∞£¥‹ ƒ≈∏¿” √º≈©
 	if (float* Timer = CooldownTimers.Find(InputKind))
 	{
 		if (*Timer > 0.f) return false;
 	}
 
-	//ÌÑ¥Ï†ú: AP Ï≤¥ÌÅ¨
+	//≈œ¡¶: AP √º≈©
 	if (bTurnBased && Spec.APCost > 0)
 	{
 		if (Stats.AP < Spec.APCost) return false;
 		Stats.AP -= Spec.APCost;
 	}
 
-	//ÌûàÌä∏Î∞ïÏä§ Î™®Ïñë ÏóÖÎç∞Ïù¥Ìä∏
-	if (Weapon && Spec.bUseWeaponHitBox)
+	//»˜∆Æπ⁄Ω∫ ∏æÁ æ˜µ•¿Ã∆Æ
+	if (Sword && Spec.bUseWeaponHitBox)
 	{
-		Weapon->SetBoxExtent(Spec.BoxExtent, true);
-		Weapon->SetRelativeLocation(Spec.BoxRelLocation);
-		Weapon->SetRelativeRotation(Spec.BoxRelRotation);
+		Sword->SetBoxExtent(Spec.BoxExtent, true);
+		Sword->SetRelativeLocation(Spec.BoxRelLocation);
+		Sword->SetRelativeRotation(Spec.BoxRelRotation);
 	}
 	bCanAttack = false;
 
-	//Î™ΩÌÉÄÏ£º Ïû¨ÏÉù
+	//∏˘≈∏¡÷ ¿Áª˝
 	if (InputKind == ESkillInput::Skill_Q)
 	{
 		Jump();
@@ -346,7 +344,7 @@ bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput Inpu
 	{
 		PlaySkillMontage(Spec);
 	}
-	//Ïø®Îã§Ïö¥ Ïä§ÌÉÄÌä∏
+	//ƒ¥ŸøÓ Ω∫≈∏∆Æ
 	if (float* Timer = CooldownTimers.Find(InputKind))
 	{
 		const float Duration = FMath::Max(0.f, Spec.CooldownSec);
@@ -369,11 +367,11 @@ void APlayerCharacter::UpdateCooldowns(float DeltaTime)
 			const float Old = Remaining;
 			Remaining = FMath::Max(0.f, Remaining - DeltaTime);
 
-			//Ï¥ù ÏßÄÏÜçÏãúÍ∞ÑÏùÄ Ïä§ÌÇ¨ÌÖåÏù¥Î∏îÏóêÏÑú Ï°∞Ìöå
+			//√— ¡ˆº”Ω√∞£¿∫ Ω∫≈≥≈◊¿Ã∫Ìø°º≠ ¡∂»∏
 			const FSkillSpec* Spec = SkillTable.Find(Input);
 			const float Duration = Spec ? FMath::Max(0.f, Spec->CooldownSec) : 0.f;
 
-			//Í∞í Î≥ÄÎèô ÏãúÏóêÎßå Î∏åÎ°úÎìúÏ∫êÏä§Ìä∏
+			//∞™ ∫Øµø Ω√ø°∏∏ ∫Í∑ŒµÂƒ≥Ω∫∆Æ
 			if (!FMath::IsNearlyEqual(Old, Remaining))
 			{
 				BroadcastCooldown(Input, Remaining, Duration);
@@ -394,7 +392,7 @@ void APlayerCharacter::PlaySkillMontage(const FSkillSpec& Spec)
 		float Len = Anim->Montage_Play(Spec.Montage);
 		if (Len > 0.f)
 		{
-			//Ïû†Í∏à Ìï¥Ï†ú Ïù¥Î≤§Ìä∏ Î∞îÏù∏Îî©(ÎÅù, Ï§ëÎã®)
+			//¿·±› «ÿ¡¶ ¿Ã∫•∆Æ πŸ¿Œµ˘(≥°, ¡ﬂ¥‹)
 			FOnMontageBlendingOutStarted BlendOut;
 			BlendOut.BindUObject(this, &APlayerCharacter::OnMontageBlendOut);
 			Anim->Montage_SetBlendingOutDelegate(BlendOut, Spec.Montage);
@@ -412,25 +410,6 @@ void APlayerCharacter::PlaySkillMontage(const FSkillSpec& Spec)
 
 void APlayerCharacter::OnWeaponBeginOverlap(UPrimitiveComponent* OverlappedComp, AActor* OtherActor, UPrimitiveComponent* OtherComp, int32 OtherBodyIndex, bool bFromSweep, const FHitResult& Sweep)
 {
-	if (!OtherActor || OtherActor == this || IsDead()) return;
-
-	if (HitActorsThisSwing.Contains(OtherActor)) return; //Ï§ëÎ≥µ ÌÉÄÍ≤© Î∞©ÏßÄ
-	AMonster* DamagedActor = Cast<AMonster>(OtherActor);
-	if (DamagedActor)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Successfully damaged actor: %s"), *DamagedActor->GetName());
-
-		const float Damage = CalcAttackDamage();
-		if (Damage <= 0.f) return;
-
-		//Instigator, DamageCauser ÏÑ§Ï†ï
-		AController* InstigatorCtrl = GetController();
-
-		UGameplayStatics::ApplyDamage(DamagedActor, Damage, InstigatorCtrl, this, UDamageType::StaticClass());
-
-		HitActorsThisSwing.Add(DamagedActor);
-	}
-
 }
 
 void APlayerCharacter::BroadcastCooldown(ESkillInput Input, float Remaining, float Duration)
@@ -469,162 +448,4 @@ void APlayerCharacter::UnLockMoveInput()
 		PC->SetIgnoreMoveInput(false);
 	}
 	bMoveInputLocked = false;
-}
-
-float APlayerCharacter::CalcAttackDamage() const
-{
-	//Ïã§Ï†ú Îç∞ÎØ∏ÏßÄ Í≥ÑÏÇ∞
-	const FSkillSpec* Basic = SkillTable.Find(ESkillInput::Attack);
-	const float Mult = Basic ? FMath::Max(0.f, Basic->DamageMultiplier) : 1.f;
-	return FMath::Max(0.f, Stats.AtkPoint * Mult);
-}
-
-void APlayerCharacter::AN_QSkillCircle(float Radius, float Damage)
-{
-	if (Radius <= 0.f || Damage <= 0.f || !GetMesh()) return;
-
-	UWorld* World = GetWorld();
-	if (!World) return;
-
-	//AMonsterÎßå ÎΩëÏïÑÏò§Îäî ÌÅ¥ÎûòÏä§ ÌïÑÌÑ∞
-	TArray<TSubclassOf<AActor>> ClassFilter;
-	ClassFilter.Add(AMonster::StaticClass());
-
-	TArray<AActor*> Ignore;
-	Ignore.Add(this); //ÌîåÎ†àÏù¥Ïñ¥ Î¨¥Ïãú
-
-	TArray<AActor*> OutActors;
-	const FVector Center = GetActorLocation();
-
-	const bool bHit = UKismetSystemLibrary::SphereOverlapActors(
-		World, Center, Radius,
-		TArray<TEnumAsByte<EObjectTypeQuery>>(),
-		nullptr,
-		Ignore, OutActors
-	);
-
-	if (!bHit) return;
-
-	AController* InstigatorCtrl = GetController();
-	for (AActor* A : OutActors)
-	{
-		if (AMonster* M = Cast<AMonster>(A))
-		{
-			UGameplayStatics::ApplyDamage(M, Damage, InstigatorCtrl, this, UDamageType::StaticClass());
-			UE_LOG(LogTemp, Warning, TEXT("QQQQQQQQQSuccessfully damaged actor: %s"), *M->GetName());
-		}
-	}
-}
-
-void APlayerCharacter::AN_ESkillCircle(float Radius, float Damage)
-{
-	//RadiusÎûë DamageÎßå Îã§Î¶Ñ
-	AN_QSkillCircle(Radius, Damage);
-}
-
-void APlayerCharacter::AN_StartPersistentAoE(float Radius, float DamagePerSecond, float TickInterval, float LifetimeSec)
-{
-	if (Radius <= 0.f || DamagePerSecond <= 0.f || TickInterval <= 0.f) return;
-
-	UWorld* World = GetWorld();
-	if (!World) return;
-
-	AN_EndPersistentAoE();
-
-	PersistentAoEComp = NewObject<USphereComponent>(this, TEXT("PersistentAoE"));
-	PersistentAoEComp->AttachToComponent(GetRootComponent(), FAttachmentTransformRules::KeepRelativeTransform);
-	PersistentAoEComp->SetSphereRadius(Radius);
-	PersistentAoEComp->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
-	PersistentAoEComp->SetCollisionObjectType(ECC_WorldDynamic);
-	PersistentAoEComp->SetGenerateOverlapEvents(true);
-
-	//Pawn(Î™¨Ïä§ÌÑ∞ Ï∫°Ïäê)Í≥º Overlap ÎêòÍ≤å
-	PersistentAoEComp->SetCollisionResponseToAllChannels(ECR_Ignore);
-	PersistentAoEComp->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-
-	PersistentAoEComp->RegisterComponent();
-
-	PersistentAoEComp->OnComponentBeginOverlap.AddDynamic(this, &APlayerCharacter::OnPersistentAoEBeginOverlap);
-	PersistentAoEComp->OnComponentEndOverlap.AddDynamic(this, &APlayerCharacter::OnPersistentAoEEndOverlap);
-
-	//ÌååÎùºÎØ∏ÌÑ∞ Ï†ÄÏû•
-	Persistent_Damage = DamagePerSecond;
-	Persistent_TickInterval = TickInterval;
-
-	//Tick ÌÉÄÏù¥Î®∏ ÏãúÏûë
-	GetWorldTimerManager().SetTimer(
-		PersistentAoE_TickTimer,
-		this,
-		&APlayerCharacter::DealPersistentAoEDamage,
-		TickInterval, true, TickInterval
-	);
-
-	//ÏàòÎ™Ö ÌÉÄÏù¥Î®∏
-	if (LifetimeSec > 0.f)
-	{
-		GetWorldTimerManager().SetTimer(
-			PersistentAoE_LifeTimer,
-			this,
-			&APlayerCharacter::AN_EndPersistentAoE,
-			LifetimeSec, false
-		);
-	}
-}
-
-void APlayerCharacter::AN_EndPersistentAoE()
-{
-	//ÌÉÄÏù¥Î®∏ Ï†ïÎ¶¨
-	GetWorldTimerManager().ClearTimer(PersistentAoE_TickTimer);
-	GetWorldTimerManager().ClearTimer(PersistentAoE_LifeTimer);
-
-	//Ïª¥Ìè¨ÎÑåÌä∏, ÏßëÌï© Ï†ïÎ¶¨
-	if (PersistentAoEComp)
-	{
-		PersistentAoEComp->OnComponentBeginOverlap.RemoveAll(this);
-		PersistentAoEComp->OnComponentEndOverlap.RemoveAll(this);
-		PersistentAoEComp->DestroyComponent();
-		PersistentAoEComp = nullptr;
-	}
-
-	PersistentAoEActors.Reset();
-	Persistent_Damage = 0.f;
-	Persistent_TickInterval = 1.f;
-}
-
-void APlayerCharacter::OnPersistentAoEBeginOverlap(UPrimitiveComponent* Comp, AActor* Other, UPrimitiveComponent* OtherComp, int32 BodyIndex, bool bFromSweep, const FHitResult& Sweep)
-{
-	if (AMonster* M = Cast<AMonster>(Other))
-	{
-		PersistentAoEActors.Add(M);
-	}
-}
-
-void APlayerCharacter::OnPersistentAoEEndOverlap(UPrimitiveComponent* Comp, AActor* Other, UPrimitiveComponent* OtherComp, int32 BodyIndex)
-{
-	if (AMonster* M = Cast<AMonster>(Other))
-	{
-		PersistentAoEActors.Remove(M);
-	}
-}
-
-void APlayerCharacter::DealPersistentAoEDamage()
-{
-	if (Persistent_Damage <= 0.f || Persistent_TickInterval <= 0.f) return;
-	const float DamagePerTick = Persistent_Damage * Persistent_TickInterval;
-	if (DamagePerTick <= 0.f) return;
-
-	AController* InstigatorCtrl = GetController();
-
-	//ÏßëÌï© ÏàúÌöåÌïòÎ©∞ Ïú†Ìö®Ìïú Î™¨Ïä§ÌÑ∞Îßå ÌÉÄÍ≤©
-	TArray<TWeakObjectPtr<AMonster>> ToRemove;
-	for (const TWeakObjectPtr<AMonster>& WeakM : PersistentAoEActors)
-	{
-		AMonster* M = WeakM.Get();
-		if (!IsValid(M)) { ToRemove.Add(WeakM); continue; }
-
-		UGameplayStatics::ApplyDamage(M, DamagePerTick, InstigatorCtrl, this, UDamageType::StaticClass());
-	}
-
-	//Î¨¥Ìö® Ìè¨Ïù∏ÌÑ∞ Ï†úÍ±∞
-	for (const auto& W : ToRemove) { PersistentAoEActors.Remove(W); }
 }
