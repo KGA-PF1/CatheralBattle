@@ -9,6 +9,7 @@
 #include "BattleHUDWidget.h"
 #include "Blueprint/UserWidget.h"
 #include "GameFramework/PlayerController.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "ParryComponent.h"
 
 
@@ -21,7 +22,7 @@ void ABattleManager::BeginPlay()
 {
 	Super::BeginPlay();
 
-	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
+	//APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
 
 	//if (HUDClass && PC && !HUD)
 	//{
@@ -34,7 +35,7 @@ void ABattleManager::BeginPlay()
 	//	}
 	//}
 
-	if (bAutoStart) StartBattle();
+	//if (bAutoStart) StartBattle();
 }
 
 void ABattleManager::Initialize(APlayerCharacter* InPlayer, ABoss_Sevarog* InBoss, AParryInputProxy* InProxy)
@@ -66,25 +67,59 @@ void ABattleManager::Initialize(APlayerCharacter* InPlayer, ABoss_Sevarog* InBos
 	UpdateHUDSnapshot();
 }
 
+// StartBattle: HUD 보장 + 교체 + 시작
 void ABattleManager::StartBattle()
 {
-	if (bRunning || !PlayerRef || !BossRef) return;
+	if (bRunning || !PlayerRef /*|| !BossRef*/) return;
 
+	APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0);
+	if (!PC) return;
+
+	// ★ 1) 현재 폰을 가장 먼저 저장
+	this->OriginalPawn = PC->GetPawn();
+	if (OriginalPawn)
+	{
+		OriginalPawnLoc = OriginalPawn->GetActorLocation();
+		OriginalPawnRot = OriginalPawn->GetActorRotation();
+	}
+
+	// ★ 2) TB 스폰(앵커 적용)
+	const FTransform TBXf = TBPlayerSpawnAnchor ? TBPlayerSpawnAnchor->GetActorTransform()
+		: (OriginalPawn ? OriginalPawn->GetActorTransform() : FTransform::Identity);
+	if (TBPlayerClass && !TBPlayer)
+	{
+		TBPlayer = GetWorld()->SpawnActor<ATBPlayerCharacter>(TBPlayerClass, TBXf);
+	}
+	if (!TBPlayer) { UE_LOG(LogTemp, Error, TEXT("[BM] TB spawn failed")); return; }
+
+	// ★ 3) 스탯 복제(원본 → TB)
+	if (APlayerCharacter* O = Cast<APlayerCharacter>(OriginalPawn))
+	{
+		O->MirrorAllTo(TBPlayer);
+	}
+
+	// ★ 4) 포제션 → 원본 숨김 (섀도잉 금지! 지역변수 만들지 말 것)
+	PC->Possess(TBPlayer);
+	PlayerRef = TBPlayer;
+	SetOriginalPawnVisible(false);            // ← 원본 가시/충돌/틱/애님 OFF
+
+	// (옵션) 원본 바닥 아래로 내려 클리핑 방지
+	// if (OriginalPawn) OriginalPawn->SetActorLocation(OriginalPawnLoc + FVector(0,0,-5000));
+
+	// ★ 5) 카메라 고정 + HUD 보장
+	TBPlayer->EnsureParryMontageInjected();
+	TBPlayer->ActivateTurnCamera(true);
 	if ((!HUD || !HUD->IsInViewport()) && HUDClass)
 	{
-		if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
-		{
-			HUD = CreateWidget<UBattleHUDWidget>(PC, HUDClass);
-			if (HUD) { HUD->AddToViewport(50); HUD->SetVisibility(ESlateVisibility::Visible); }
-		}
+		HUD = CreateWidget<UBattleHUDWidget>(PC, HUDClass);
+		if (HUD) { HUD->AddToViewport(50); HUD->SetVisibility(ESlateVisibility::Visible); }
 	}
+
 	bRunning = true;
 	LastPatternIdx = -1;
 	EnterPlayerTurn();
-
-	if (!HUDClass) { UE_LOG(LogTemp, Error, TEXT("[BM] HUDClass not set!")); }
-	if (!TurnMenuClass) { UE_LOG(LogTemp, Error, TEXT("[BM] TurnMenuClass not set!")); }
 }
+
 
 void ABattleManager::EndBattle()
 {
@@ -92,6 +127,28 @@ void ABattleManager::EndBattle()
 	bRunning = false;
 
 	SetParryEnabled(false);
+	ShowPlayerUI(false);
+
+	// 턴제 카메라 해제
+	if (ATBPlayerCharacter* TB = Cast<ATBPlayerCharacter>(PlayerRef))
+	{
+		TB->ActivateTurnCamera(false);
+	}
+
+	// ★ 원래 플레이어 되살리고 재포제션
+	if (APlayerController* PC = UGameplayStatics::GetPlayerController(this, 0))
+	{
+		if (OriginalPawn)
+		{
+			// 위치/방향 복귀(원하면 전투장 빠져나온 위치로 갱신해도 됨)
+			OriginalPawn->SetActorLocationAndRotation(OriginalPawnLoc, OriginalPawnRot);
+			SetOriginalPawnVisible(true);
+			PC->Possess(Cast<APawn>(OriginalPawn));
+		}
+	}
+
+	// HUD 정리(원하면 유지 가능)
+	if (HUD) { HUD->RemoveFromParent(); HUD = nullptr; }
 
 	if (PlayerRef) { PlayerRef->OnHpChanged.RemoveDynamic(this, &ABattleManager::OnPlayerHpChanged); }
 	if (BossRef) { BossRef->OnPatternFinished.RemoveDynamic(this, &ABattleManager::OnBossPatternFinished); }
@@ -240,14 +297,23 @@ void ABattleManager::UpdateHUDSnapshot() {
 	if (BossRef) { HUD->SetBossHP(BossRef->Hp, BossRef->MaxHp); }
 }
 
+// 선택지 확정 시 플레이어 연출 + 데미지 처리
 void ABattleManager::HandleMenuConfirm(EPlayerCommand Command)
 {
-	// 아주 간단한 실행(연출은 BP에서)
+	// 플레이어 연출(공/스/스)
+	if (ATBPlayerCharacter* TB = Cast<ATBPlayerCharacter>(PlayerRef))
+	{
+		if (UAnimMontage* M = TB->GetMontageByCommand(Command))
+		{
+			PlayPlayerMontage(M); // 종료 콜백에서 턴 진행
+		}
+	}
+
+	// (기존) 데미지/게이지 처리
 	switch (Command) {
 	case EPlayerCommand::Attack:
 		if (BossRef) { BossRef->ApplyDamageToBoss(20.f); }
 		if (HUD) { HUD->ShowToast(TEXT("Attack -20"), 0.7f); }
-		// 일반공격 AP+1
 		if (PlayerRef) { PlayerRef->Stats.AP = FMath::Clamp(PlayerRef->Stats.AP + 1.f, 0.f, 6.f); if (HUD) HUD->SetAP(PlayerRef->Stats.AP); HUD->ShowToast(TEXT("AP +1"), 0.7f); }
 		break;
 	case EPlayerCommand::Skill1:
@@ -270,8 +336,9 @@ void ABattleManager::HandleMenuConfirm(EPlayerCommand Command)
 		}
 		break;
 	}
+
 	UpdateHUDSnapshot();
-	NotifyPlayerTurnDone();
+	// 턴 진행은 몽타주 끝(OnPlayerMontageEnded)에서.
 }
 
 void ABattleManager::OnParryToast()
@@ -279,61 +346,53 @@ void ABattleManager::OnParryToast()
 	if (HUD) { HUD->ShowToast(TEXT("Block!  AP +1"), 0.8f); HUD->SetAP(PlayerRef ? PlayerRef->Stats.AP : 0.f); }
 }
 
+// BattleManager.cpp
 void ABattleManager::OnBossDealDmg(float Amount)
 {
+	// 토스트
 	if (HUD) { HUD->ShowToast(FString::Printf(TEXT("-%.0f"), Amount), 0.6f); }
+	// ★ 히트리액트 재생(턴제 전용일 때만)
+	if (ATBPlayerCharacter* TB = Cast<ATBPlayerCharacter>(PlayerRef))
+	{
+		TB->PlayHitReact();
+	}
 	UpdateHUDSnapshot();
 }
 
+
+// 스켈레톤 비교(컴파일 에러 수정)
 void ABattleManager::PlayPlayerMontage(UAnimMontage* MontageToPlay)
 {
 	if (!PlayerRef) { UE_LOG(LogTemp, Error, TEXT("[BM] PlayerRef nullptr")); NotifyPlayerTurnDone(); return; }
-	if (!MontageToPlay) { UE_LOG(LogTemp, Warning, TEXT("[BM] Montage null")); NotifyPlayerTurnDone(); return; }
+	if (!MontageToPlay) { UE_LOG(LogTemp, Warning, TEXT("[BM] Montage null"));    NotifyPlayerTurnDone(); return; }
 
 	USkeletalMeshComponent* Mesh = PlayerRef->GetMesh();
 	if (!Mesh) { UE_LOG(LogTemp, Error, TEXT("[BM] Player Mesh nullptr")); NotifyPlayerTurnDone(); return; }
 
-	// 스켈레톤 확인
-	if (MontageToPlay->GetSkeleton() != Mesh->GetSkeletalMeshAsset()->GetSkeleton())
+	if (!Mesh->GetSkeletalMeshAsset() || MontageToPlay->GetSkeleton() != Mesh->GetSkeletalMeshAsset()->GetSkeleton())
 	{
 		UE_LOG(LogTemp, Error, TEXT("[BM] Skeleton mismatch: Montage=%s  Player=%s"),
-			*MontageToPlay->GetSkeleton()->GetName(),
-			*Mesh->GetSkeletalMeshAsset()->GetSkeleton()->GetName());
-		NotifyPlayerTurnDone();
-		return;
+			*GetNameSafe(MontageToPlay->GetSkeleton()),
+			*GetNameSafe(Mesh->GetSkeletalMeshAsset() ? Mesh->GetSkeletalMeshAsset()->GetSkeleton() : nullptr));
+		NotifyPlayerTurnDone(); return;
 	}
 
-	// 애님 인스턴스 확보
 	UAnimInstance* Anim = Mesh->GetAnimInstance();
-	if (!Anim) { UE_LOG(LogTemp, Error, TEXT("[BM] AnimInstance nullptr (Anim Class 미지정?)")); NotifyPlayerTurnDone(); return; }
+	if (!Anim) { UE_LOG(LogTemp, Error, TEXT("[BM] AnimInstance nullptr")); NotifyPlayerTurnDone(); return; }
 
-	// 슬롯 이름 로그(슬롯 불일치 디버그)
-	if (MontageToPlay->SlotAnimTracks.Num() > 0)
-	{
-		const FName SlotName = MontageToPlay->SlotAnimTracks[0].SlotName;
-		UE_LOG(LogTemp, Log, TEXT("[BM] Play Montage=%s Slot=%s"), *MontageToPlay->GetName(), *SlotName.ToString());
-	}
-
-	// 메뉴 숨기고 게임 입력으로
 	ShowPlayerUI(false);
 
-	// 중복 바인딩 방지
 	Anim->OnMontageEnded.RemoveDynamic(this, &ABattleManager::OnPlayerMontageEnded);
 	Anim->OnMontageEnded.AddDynamic(this, &ABattleManager::OnPlayerMontageEnded);
 
-	// 재생!
 	const float Len = Anim->Montage_Play(MontageToPlay, 1.0f);
 	if (Len <= 0.f)
 	{
-		UE_LOG(LogTemp, Error, TEXT("[BM] Montage_Play failed! (슬롯 미연결 또는 블렌드 규칙 충돌)"));
-		// 실패시 바로 턴 진행 막힘 방지
+		UE_LOG(LogTemp, Error, TEXT("[BM] Montage_Play failed"));
 		NotifyPlayerTurnDone();
 		return;
 	}
-
-	if (GEngine) GEngine->AddOnScreenDebugMessage(-1, 1.5f, FColor::Cyan, TEXT("PLAYER MONTAGE PLAY"));
 }
-
 
 void ABattleManager::OnPlayerMontageEnded(UAnimMontage* Montage, bool bInterrupted)
 {
@@ -343,4 +402,26 @@ void ABattleManager::OnPlayerMontageEnded(UAnimMontage* Montage, bool bInterrupt
 	}
 	UpdateHUDSnapshot();
 	NotifyPlayerTurnDone();
+}
+
+void ABattleManager::SetOriginalPawnVisible(bool bVisible)
+{
+	if (!OriginalPawn) return;
+	OriginalPawn->SetActorHiddenInGame(!bVisible);
+	OriginalPawn->SetActorEnableCollision(bVisible);
+	OriginalPawn->SetActorTickEnabled(bVisible);
+
+	if (ACharacter* Ch = Cast<ACharacter>(OriginalPawn))
+	{
+		if (USkeletalMeshComponent* Sk = Ch->GetMesh())
+		{
+			Sk->bPauseAnims = !bVisible;
+			Sk->SetVisibility(bVisible, true); // 자식 포함
+		}
+		if (UCharacterMovementComponent* Move = Ch->GetCharacterMovement())
+		{
+			if (!bVisible) Move->DisableMovement();
+			else           Move->SetMovementMode(MOVE_Walking);
+		}
+	}
 }

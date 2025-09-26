@@ -3,6 +3,7 @@
 #include "TurnMenuWidget.h"
 #include "BattleHUDWidget.h"
 #include "GameFramework/Actor.h"
+#include "ATBPlayerCharacter.h"
 #include "BattleManager.generated.h"
 
 class APlayerCharacter;
@@ -25,6 +26,12 @@ class CATHERALBATTLE_API ABattleManager : public AActor
 
 public:
 	ABattleManager();
+
+
+	UPROPERTY() ATBPlayerCharacter* TBPlayer = nullptr;
+
+	UPROPERTY(EditAnywhere, Category = "Classes")
+	TSubclassOf<ATBPlayerCharacter> TBPlayerClass;
 
 	/** 보스 패턴 몽타주 리스트(랜덤 선택, 직전 반복 금지 옵션) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Battle|Setup")
@@ -70,6 +77,22 @@ public:
 	UFUNCTION() void OnPlayerMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 	void PlayPlayerMontage(UAnimMontage* MontageToPlay);
 
+	// Spawn 앵커(레벨에 놓은 TargetPoint나 빈 Actor를 드롭)
+	UPROPERTY(EditAnywhere, Category = "TB|Spawn")
+	AActor* TBPlayerSpawnAnchor = nullptr;
+
+	UPROPERTY(EditAnywhere, Category = "TB|Spawn")
+	AActor* BossSpawnAnchor = nullptr;
+
+	// 필요시 보스 새로 스폰할 클래스(없으면 기존 보스를 자리만 이동)
+	UPROPERTY(EditAnywhere, Category = "TB|Spawn")
+	TSubclassOf<ABoss_Sevarog> BossClass;
+
+	// 기존 보스를 앵커 위치로 ‘이동’시킬지 여부
+	UPROPERTY(EditAnywhere, Category = "TB|Spawn")
+	bool bRelocateExistingBoss = true;
+
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -108,5 +131,10 @@ private:
 	UFUNCTION() void OnParryToast();
 	UFUNCTION() void OnBossDealDmg(float Amt);
 
+	// 플레이어 교체
+	UPROPERTY() APawn* OriginalPawn = nullptr;
+	FVector OriginalPawnLoc;
+	FRotator OriginalPawnRot;
 
+	void SetOriginalPawnVisible(bool bVisible);
 };
