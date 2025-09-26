@@ -52,7 +52,7 @@ public:
 
         // 공격 범위 및 공격력 변수 추가
         UPROPERTY(EditAnywhere, Category = "Combat")
-		float AttackRange = 150.f;// 공격 범위 변수
+		float AttackRange = 100.f;// 공격 범위 변수
 
         // 공격 쿨타임 변수 (초 단위)
         UPROPERTY(EditAnywhere, Category = "Combat")
@@ -67,12 +67,15 @@ public:
         void OnDeath(); // 몬스터가 죽었을 때 처리 함수
 
         void DestroyMonster(); // 몬스터 제거 함수
-        
-        void OnSpawnAnimationFinished();
 
-        FTimerHandle AttackTimerHandle;
+        void StartAttack();
+
+        void StopAttack();
+
         FTimerHandle DeathTimerHandle;
 
+        FTimerHandle AttackTimerHandle;
+        bool bIsAttacking = false;
         // ==== 이벤트 ====
         // 몬스터가 죽을 때 알림
         UPROPERTY(BlueprintAssignable, Category = "Monster")
@@ -80,6 +83,9 @@ public:
 		// 몬스터의 HP가 변경될 때 알림 (위젯에 브로드캐스트)
         UPROPERTY(BlueprintAssignable, Category = "Monster")
         FOnHpMonster OnHpMonster;
+
+		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+		class UAnimMontage* HitMontage;
 
     protected:	
         void PlayAttackAnimation();

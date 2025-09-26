@@ -39,6 +39,27 @@ float AMonster::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, 
 
 	CurrentHP -= (int32)DamageAmount;
 	if (CurrentHP < 0) CurrentHP = 0;
+	//if(HitMontage)
+	//	PlayAnimMontage(HitMontage);	
+	
+//	if (UAnimInstance* Anim = GetMesh()->GetAnimInstance())
+	{
+	
+		if (HitMontage)
+		{
+			PlayAnimMontage(HitMontage);
+
+	/*		UE_LOG(LogTemp, Warning, TEXT("HitMontage is valid"));
+			UE_LOG(LogTemp, Warning, TEXT("Montage Length: %f"), HitMontage->GetPlayLength());
+
+			if (!Anim->Montage_IsPlaying(HitMontage))
+			{
+				float PlayRate = Anim->Montage_Play(HitMontage);
+				UE_LOG(LogTemp, Warning, TEXT("Montage Play returned: %f"), PlayRate);
+			}*/
+		}
+	}
+
 
 	OnHpMonster.Broadcast((float)CurrentHP, (float)MaxHP);
 
@@ -82,7 +103,7 @@ void AMonster::OnDeath()
 	OnMonsterDeath.Broadcast(this);
 
 	GetWorldTimerManager().ClearTimer(AttackTimerHandle); // 공격 타이머 종료
-
+	OnMonsterDeath.Broadcast(this);
 	GetWorldTimerManager().SetTimer(
 		DeathTimerHandle,
 		this,
@@ -95,6 +116,21 @@ void AMonster::OnDeath()
 void AMonster::DestroyMonster()
 {
 	Destroy();
+}
+
+void AMonster::StartAttack()
+{
+	if (bIsAttacking) return;
+
+	bIsAttacking = true;
+
+	// 5초 후 공격 멈춤 함수 호출 예약
+	GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &AMonster::StopAttack, 5.f, false);
+}
+
+void AMonster::StopAttack()
+{
+	bIsAttacking = false;
 }
 
 
