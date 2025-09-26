@@ -4,6 +4,7 @@
 #include "Components/HorizontalBox.h"
 #include "Components/Image.h"
 #include "Components/TextBlock.h"     // 토스트 메시지용
+#include "Components/Overlay.h" 
 #include "Blueprint/WidgetTree.h"
 
 void UBattleHUDWidget::NativeConstruct()
@@ -21,6 +22,11 @@ void UBattleHUDWidget::NativeConstruct()
 			if (UImage* Img = Cast<UImage>(APBox->GetChildAt(i))) APImages.Add(Img);
 	}
 	UpdateAPPips(0);
+
+	// 초기 배너 감추기(애니 시작 전 깜빡임 방지)
+	if (Overlay_playerturn) Overlay_playerturn->SetVisibility(ESlateVisibility::Hidden);
+	if (Overlay_bossturn)   Overlay_bossturn->SetVisibility(ESlateVisibility::Hidden);
+
 }
 
 void UBattleHUDWidget::SetPlayerHP(float C, float M) { if (PlayerHpBar && M > 0) PlayerHpBar->SetPercent(C / M); }
@@ -53,4 +59,56 @@ void UBattleHUDWidget::ShowToast(const FString& Msg, float Life)
 	FTimerHandle H; GetWorld()->GetTimerManager().SetTimer(H, FTimerDelegate::CreateWeakLambda(this, [=]() {
 		if (T && T->IsValidLowLevelFast()) { T->RemoveFromParent(); }
 		}), Life, false);
+}
+
+// ★ 턴 배너 구현
+void UBattleHUDWidget::ShowPlayerTurn(bool bShow)
+{
+	// 상대 배너 먼저 꺼주기(상호 배타)
+	if (Overlay_bossturn && BossTurn_Out && Overlay_bossturn->IsVisible())
+	{
+		PlayAnimation(BossTurn_Out, 0.f, 1);
+	}
+
+	if (!Overlay_playerturn) return;
+
+	if (bShow)
+	{
+		Overlay_playerturn->SetVisibility(ESlateVisibility::HitTestInvisible);
+		if (PlayerTurn_In)  PlayAnimation(PlayerTurn_In, 0.f, 1);
+	}
+	else
+	{
+		if (PlayerTurn_Out) PlayAnimation(PlayerTurn_Out, 0.f, 1);
+	}
+}
+
+void UBattleHUDWidget::ShowBossTurn(bool bShow)
+{
+	// 상대 배너 먼저 꺼주기
+	if (Overlay_playerturn && PlayerTurn_Out && Overlay_playerturn->IsVisible())
+	{
+		PlayAnimation(PlayerTurn_Out, 0.f, 1);
+	}
+
+	if (!Overlay_bossturn) return;
+
+	if (bShow)
+	{
+		Overlay_bossturn->SetVisibility(ESlateVisibility::HitTestInvisible);
+		if (BossTurn_In)  PlayAnimation(BossTurn_In, 0.f, 1);
+	}
+	else
+	{
+		if (BossTurn_Out) PlayAnimation(BossTurn_Out, 0.f, 1);
+	}
+}
+
+void UBattleHUDWidget::PlayParrySuccessEffect()
+{
+	if (Parry_Success) PlayAnimation(Parry_Success, 0.f, 1);
+}
+void UBattleHUDWidget::PlayParryPerfectEffect()
+{
+	if (Parry_Perfect) PlayAnimation(Parry_Perfect, 0.f, 1);
 }

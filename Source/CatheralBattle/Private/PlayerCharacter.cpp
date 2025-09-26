@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+ï»¿// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "PlayerCharacter.h"
@@ -50,7 +50,7 @@ APlayerCharacter::APlayerCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 
-	//¹«±â È÷Æ®¹Ú½º
+	//ë¬´ê¸° ížˆíŠ¸ë°•ìŠ¤
 	Sword = CreateDefaultSubobject<UBoxComponent>(TEXT("Sword"));
 	Sword->SetupAttachment(GetMesh());
 	Sword->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -77,7 +77,7 @@ void APlayerCharacter::BeginPlay()
 		}
 	}
 
-	//¹«±â È÷Æ®¹Ú½º
+	//ë¬´ê¸° ížˆíŠ¸ë°•ìŠ¤
 	if (Sword && GetMesh())
 	{
 		Sword->AttachToComponent(
@@ -88,7 +88,7 @@ void APlayerCharacter::BeginPlay()
 		Sword->OnComponentBeginOverlap.AddDynamic(this, &APlayerCharacter::OnWeaponBeginOverlap);
 	}
 
-	//ÃÊ±â Äð´Ù¿î 0
+	//ì´ˆê¸° ì¿¨ë‹¤ìš´ 0
 	for (const auto& Pair : SkillTable)
 	{
 		CooldownTimers.Add(Pair.Key, 0.f);
@@ -120,7 +120,7 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Started, this, &APlayerCharacter::StartSprint);
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &APlayerCharacter::StopSprint);
 
-		//°ø°Ý °ü·Ã
+		//ê³µê²© ê´€ë ¨
 		EnhancedInputComponent->BindAction(AttackAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_Attack);
 		EnhancedInputComponent->BindAction(SkillQAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_SkillQ);
 		EnhancedInputComponent->BindAction(SkillEAction, ETriggerEvent::Started, this, &APlayerCharacter::Input_SkillE);
@@ -286,29 +286,29 @@ void APlayerCharacter::AN_Sword_Off()
 
 bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput InputKind)
 {
-	//¸ùÅ¸ÁÖ ¾ø´Â ½ºÅ³ ¹«½Ã
+	//ëª½íƒ€ì£¼ ì—†ëŠ” ìŠ¤í‚¬ ë¬´ì‹œ
 	if (!Spec.Montage) return false;
 
-	//Áßº¹ ½ÃÀü ¹æÁö
+	//ì¤‘ë³µ ì‹œì „ ë°©ì§€
 	if (UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
 	{
 		if (Anim->IsAnyMontagePlaying()) return false;
 	}
 
-	//°£´Ü ÄðÅ¸ÀÓ Ã¼Å©
+	//ê°„ë‹¨ ì¿¨íƒ€ìž„ ì²´í¬
 	if (float* Timer = CooldownTimers.Find(InputKind))
 	{
 		if (*Timer > 0.f) return false;
 	}
 
-	//ÅÏÁ¦: AP Ã¼Å©
+	//í„´ì œ: AP ì²´í¬
 	if (bTurnBased && Spec.APCost > 0)
 	{
 		if (Stats.AP < Spec.APCost) return false;
 		Stats.AP -= Spec.APCost;
 	}
 
-	//È÷Æ®¹Ú½º ¸ð¾ç ¾÷µ¥ÀÌÆ®
+	//ížˆíŠ¸ë°•ìŠ¤ ëª¨ì–‘ ì—…ë°ì´íŠ¸
 	if (Sword && Spec.bUseWeaponHitBox)
 	{
 		Sword->SetBoxExtent(Spec.BoxExtent, true);
@@ -317,7 +317,7 @@ bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput Inpu
 	}
 	bCanAttack = false;
 
-	//¸ùÅ¸ÁÖ Àç»ý
+	//ëª½íƒ€ì£¼ ìž¬ìƒ
 	if (InputKind == ESkillInput::Skill_Q)
 	{
 		Jump();
@@ -344,7 +344,7 @@ bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput Inpu
 	{
 		PlaySkillMontage(Spec);
 	}
-	//Äð´Ù¿î ½ºÅ¸Æ®
+	//ì¿¨ë‹¤ìš´ ìŠ¤íƒ€íŠ¸
 	if (float* Timer = CooldownTimers.Find(InputKind))
 	{
 		const float Duration = FMath::Max(0.f, Spec.CooldownSec);
@@ -367,11 +367,11 @@ void APlayerCharacter::UpdateCooldowns(float DeltaTime)
 			const float Old = Remaining;
 			Remaining = FMath::Max(0.f, Remaining - DeltaTime);
 
-			//ÃÑ Áö¼Ó½Ã°£Àº ½ºÅ³Å×ÀÌºí¿¡¼­ Á¶È¸
+			//ì´ ì§€ì†ì‹œê°„ì€ ìŠ¤í‚¬í…Œì´ë¸”ì—ì„œ ì¡°íšŒ
 			const FSkillSpec* Spec = SkillTable.Find(Input);
 			const float Duration = Spec ? FMath::Max(0.f, Spec->CooldownSec) : 0.f;
 
-			//°ª º¯µ¿ ½Ã¿¡¸¸ ºê·ÎµåÄ³½ºÆ®
+			//ê°’ ë³€ë™ ì‹œì—ë§Œ ë¸Œë¡œë“œìºìŠ¤íŠ¸
 			if (!FMath::IsNearlyEqual(Old, Remaining))
 			{
 				BroadcastCooldown(Input, Remaining, Duration);
@@ -392,7 +392,7 @@ void APlayerCharacter::PlaySkillMontage(const FSkillSpec& Spec)
 		float Len = Anim->Montage_Play(Spec.Montage);
 		if (Len > 0.f)
 		{
-			//Àá±Ý ÇØÁ¦ ÀÌº¥Æ® ¹ÙÀÎµù(³¡, Áß´Ü)
+			//ìž ê¸ˆ í•´ì œ ì´ë²¤íŠ¸ ë°”ì¸ë”©(ë, ì¤‘ë‹¨)
 			FOnMontageBlendingOutStarted BlendOut;
 			BlendOut.BindUObject(this, &APlayerCharacter::OnMontageBlendOut);
 			Anim->Montage_SetBlendingOutDelegate(BlendOut, Spec.Montage);
@@ -449,3 +449,24 @@ void APlayerCharacter::UnLockMoveInput()
 	}
 	bMoveInputLocked = false;
 }
+
+void APlayerCharacter::MirrorAllTo(APlayerCharacter* Dest, bool bCopyCooldowns) const
+{
+	if (!Dest) return;
+
+	// ìŠ¤íƒ¯ í†µì§¸ ë³µì‚¬
+	Dest->Stats = this->Stats; // Hp/MaxHp/AtkPoint/Speed/UltGauge/MaxUltGauge/AP ì „ë¶€ í¬í•¨
+
+	// ëŸ°íƒ€ìž„ ìƒíƒœ
+	Dest->SprintMultiplier = this->SprintMultiplier;
+	Dest->bIsSprinting = this->bIsSprinting;
+	Dest->bCanAttack = this->bCanAttack;
+
+	// ì´ë™ì†ë„ ë°˜ì˜
+	Dest->SyncMovementSpeed();
+
+	// UI ì´ë²¤íŠ¸ ìž¬ë¸Œë¡œë“œìºìŠ¤íŠ¸(ì¦‰ì‹œ HUD ë°˜ì˜)
+	Dest->OnHpChanged.Broadcast(Dest->Stats.Hp, Dest->Stats.MaxHp);
+	Dest->OnUltGaugeChanged.Broadcast(Dest->Stats.UltGauge, Dest->Stats.MaxUltGauge);
+}
+

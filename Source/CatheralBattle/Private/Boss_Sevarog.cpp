@@ -35,6 +35,7 @@ void ABoss_Sevarog::NotifyPatternEnd()
 	if (CurrentTarget.IsValid() && ExpectedHits > 0 && SucceededHits.Num() == ExpectedHits)
 	{
 		CurrentTarget.Get()->AddUltGauge(10.f);
+		OnPatternPerfect.Broadcast(); // ★ 퍼펙트 패리 신호
 	}
 	OnPatternFinished.Broadcast();
 
@@ -67,4 +68,5 @@ void ABoss_Sevarog::ApplyDamageToBoss(float Damage)
 {
 	if (Damage <= 0.f || Hp <= 0.f) return;
 	Hp = FMath::Clamp(Hp - Damage, 0.f, MaxHp);
+	OnBossHpChanged.Broadcast(); // ★ HP 변경 신호
 }

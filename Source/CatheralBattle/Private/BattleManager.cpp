@@ -13,6 +13,8 @@
 #include "ParryComponent.h"
 
 
+FTimerHandle Timer_NextTurn;
+
 ABattleManager::ABattleManager()
 {
 	PrimaryActorTick.bCanEverTick = false;
@@ -61,6 +63,7 @@ void ABattleManager::Initialize(APlayerCharacter* InPlayer, ABoss_Sevarog* InBos
 	if (BossRef)
 	{
 		BossRef->OnPatternFinished.AddDynamic(this, &ABattleManager::OnBossPatternFinished);
+		BossRef->OnBossHpChanged.AddDynamic(this, &ABattleManager::UpdateHUDSnapshot);       // ★
 	}
 
 	BindRuntimeSignals();
@@ -162,6 +165,13 @@ void ABattleManager::NotifyPlayerTurnDone()
 	CheckEnd();
 	if (!bRunning) return;
 	EnterBossTurn();
+
+	// ★ 3초 대기 후 보스 턴
+	GetWorldTimerManager().ClearTimer(Timer_NextTurn);
+	GetWorldTimerManager().SetTimer(Timer_NextTurn, this, &ABattleManager::EnterBossTurn, 3.0f, false);
+
+	// 턴 배너 끄기
+	if (HUD) HUD->ShowPlayerTurn(false);
 }
 
 void ABattleManager::EnterPlayerTurn()
@@ -170,6 +180,7 @@ void ABattleManager::EnterPlayerTurn()
 	SetParryEnabled(false);
 	ShowPlayerUI(true);       // 메뉴 ON
 	UpdateHUDSnapshot();
+	if (HUD) HUD->ShowPlayerTurn(true);   // 배너 ON
 }
 
 void ABattleManager::EnterBossTurn() {
@@ -185,7 +196,9 @@ void ABattleManager::EnterBossTurn() {
 		Chosen = BossPatternMontages[Idx];
 		LastPatternIdx = Idx;
 	}
-	if (BossRef) { BossRef->PlayPatternMontage(Chosen, PlayerRef); } // ← 몽타주 GO}
+	if (BossRef) { BossRef->PlayPatternMontage(Chosen, PlayerRef); }
+
+	if (HUD) HUD->ShowBossTurn(true);     // ★ 배너 ON
 }
 
 int32 ABattleManager::PickMontageIndex() const
@@ -222,6 +235,7 @@ void ABattleManager::TryAutoWireProxy()
 
 void ABattleManager::OnPlayerHpChanged(float NewHp, float MaxHp)
 {
+	if (HUD) HUD->SetPlayerHP(NewHp, MaxHp); // ★ 즉시 반영
 	if (NewHp <= 0.f) { EndBattle(); }
 }
 
@@ -231,6 +245,12 @@ void ABattleManager::OnBossPatternFinished()
 	CheckEnd();
 	if (!bRunning) return;
 	EnterPlayerTurn();
+
+	// ★ 3초 대기 후 플레이어 턴
+	GetWorldTimerManager().ClearTimer(Timer_NextTurn);
+	GetWorldTimerManager().SetTimer(Timer_NextTurn, this, &ABattleManager::EnterPlayerTurn, 3.0f, false);
+
+	if (HUD) HUD->ShowBossTurn(false);
 }
 
 void ABattleManager::BindRuntimeSignals() {
@@ -341,12 +361,6 @@ void ABattleManager::HandleMenuConfirm(EPlayerCommand Command)
 	// 턴 진행은 몽타주 끝(OnPlayerMontageEnded)에서.
 }
 
-void ABattleManager::OnParryToast()
-{
-	if (HUD) { HUD->ShowToast(TEXT("Block!  AP +1"), 0.8f); HUD->SetAP(PlayerRef ? PlayerRef->Stats.AP : 0.f); }
-}
-
-// BattleManager.cpp
 void ABattleManager::OnBossDealDmg(float Amount)
 {
 	// 토스트
@@ -423,5 +437,13 @@ void ABattleManager::SetOriginalPawnVisible(bool bVisible)
 			if (!bVisible) Move->DisableMovement();
 			else           Move->SetMovementMode(MOVE_Walking);
 		}
+	}
+}
+
+void ABattleManager::OnParryToast()
+{
+	if (HUD) {
+		HUD->ShowToast(TEXT("Block!  AP +1"), 0.8f);
+		HUD->SetAP(PlayerRef ? PlayerRef->Stats.AP : 0.f);
 	}
 }
