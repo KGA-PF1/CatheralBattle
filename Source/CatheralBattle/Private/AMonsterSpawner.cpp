@@ -42,18 +42,8 @@ void AAMonsterSpawner::SpawnMonsterAt(const FVector& Location)
 	if (NewMonster)
 	{
 		SpawnedMonsters.Add(NewMonster);
-
-		// AIController가 없으면 생성 후 몬스터 소유
-		AAIController* AIController = Cast<AAIController>(NewMonster->GetController());
-		if (!AIController)
-		{
-			AIController = GetWorld()->SpawnActor<AMonsterAIController>(AMonsterAIController::StaticClass());
-			if (AIController)
-				AIController->Possess(NewMonster);
-		}
-
-		// 몬스터 사망 이벤트 바인딩 대응하면 재생성 가능 (선택적)
-		// NewMonster->OnDeath.AddDynamic(this, &AAMonsterSpawner::OnMonsterDeath);
+		NewMonster->OnMonsterDeath.AddDynamic(this, &AAMonsterSpawner::OnMonsterDeath);
+		// AI 컨트롤러 등 추가 초기화
 	}
 }
 
@@ -62,8 +52,7 @@ void AAMonsterSpawner::OnMonsterDeath(AMonster* DeadMonster)
 	if (SpawnedMonsters.Contains(DeadMonster))
 	{
 		SpawnedMonsters.Remove(DeadMonster);
-
 		FVector RespawnLoc = GetRandomSpawnLocation();
-		SpawnMonsterAt(RespawnLoc);
+		SpawnMonsterAt(RespawnLoc); // 몬스터 재소환
 	}
 }
