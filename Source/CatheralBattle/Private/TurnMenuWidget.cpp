@@ -48,3 +48,13 @@ void UTurnMenuWidget::NativeConstruct()
 	bIsFocusable = true;             // ★ 반드시
 	SetKeyboardFocus();              // 화면에 올라오자마자 포커스
 }
+
+void UTurnMenuWidget::UpdateUltReady(bool bReady)
+{
+	if (Ult_CantUse)
+	{
+		Ult_CantUse->SetOpacity(bReady ? 0.5f : 1.f);
+	}
+	SetUltimateEnabled(bReady);
+
+}

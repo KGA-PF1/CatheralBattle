@@ -49,6 +49,8 @@ public:
 	void PlayHitReact() const;
 	void EnsureParryMontageInjected();
 
+
+
 private:
 	UPROPERTY() TWeakObjectPtr<UParryComponent> CachedParry;
 	void CacheParry();

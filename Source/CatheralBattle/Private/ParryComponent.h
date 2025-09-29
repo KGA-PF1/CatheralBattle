@@ -23,6 +23,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Parry") void OnParryPressed();
 	UPROPERTY(BlueprintAssignable, Category = "Parry") FOnParrySuccess OnParrySuccess;
+	UFUNCTION() void OnBossArm(APlayerCharacter* Target, int32 HitIndex, float WindowSec);
 
 protected:
 	virtual void BeginPlay() override;
@@ -43,7 +44,6 @@ private:
 
 	// 내부
 	void TryBindBoss();
-	UFUNCTION() void OnBossArm(APlayerCharacter* Target, int32 HitIndex, float WindowSec);
 	void ExpireArm();
 	void BeginRecovery();
 	void EndRecovery();

@@ -113,6 +113,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Player|Sync")
 	void MirrorAllTo(class APlayerCharacter* Dest, bool bCopyCooldowns = true) const;
 
+	UFUNCTION(BlueprintCallable)
+	float GetSkillDamage(ESkillInput Input) const;
+
 	virtual void Tick(float DeltaTime) override;
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;

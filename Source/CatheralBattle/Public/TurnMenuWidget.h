@@ -1,6 +1,8 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "Components/TextBlock.h"
+#include "Components/Image.h"
 #include "TurnMenuWidget.generated.h"
 
 UENUM(BlueprintType)
@@ -29,6 +31,12 @@ public:
 	// 외부에서 궁극기 사용 가능/불가 표시
 	UFUNCTION(BlueprintCallable) void SetUltimateEnabled(bool bEnabled) { bUltimateEnabled = bEnabled; UpdateVisuals(); }
 
+	UPROPERTY(meta = (BindWidgetOptional))
+	UImage* Ult_CantUse;
+
+	UFUNCTION(BlueprintCallable)
+	void UpdateUltReady(bool bReady);
+
 protected:
 	virtual void NativeOnInitialized() override
 	{
@@ -39,6 +47,8 @@ protected:
 	virtual FReply NativeOnKeyDown(const FGeometry& InGeo, const FKeyEvent& InKeyEvent) override;
 
 	virtual void NativeConstruct() override;
+
+
 
 private:
 	bool bUltimateEnabled = true;

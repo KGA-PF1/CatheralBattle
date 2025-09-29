@@ -49,14 +49,17 @@ public:
 
 	/** 보스 피해(플레이어 턴 등) */
 	UFUNCTION(BlueprintCallable, Category = "Boss|Stat") void ApplyDamageToBoss(float Damage);
+	UFUNCTION(BlueprintCallable) void PlayHitReact();
 	UPROPERTY(BlueprintAssignable, Category = "Boss|Event") FOnBossDealtDamage OnBossDealtDamage;
 	
+	UPROPERTY(EditAnywhere) UAnimMontage* HitReactMontage;
 
+	TSet<int32> SucceededHits;
+	int32 ExpectedHits = 0;
 
 
 private:
 	/** 이번 패턴 대상/성공기록 */
 	UPROPERTY() TWeakObjectPtr<APlayerCharacter> CurrentTarget;
-	TSet<int32> SucceededHits;
-	int32 ExpectedHits = 0;
+
 };

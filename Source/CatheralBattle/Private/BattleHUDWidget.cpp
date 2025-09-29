@@ -61,48 +61,33 @@ void UBattleHUDWidget::ShowToast(const FString& Msg, float Life)
 		}), Life, false);
 }
 
-// ★ 턴 배너 구현
 void UBattleHUDWidget::ShowPlayerTurn(bool bShow)
 {
-	// 상대 배너 먼저 꺼주기(상호 배타)
-	if (Overlay_bossturn && BossTurn_Out && Overlay_bossturn->IsVisible())
-	{
-		PlayAnimation(BossTurn_Out, 0.f, 1);
-	}
-
-	if (!Overlay_playerturn) return;
+	if (!Overlay_playerturn || !Overlay_bossturn) return;
 
 	if (bShow)
 	{
+		// 플레이어 턴 시작 → 자기 배너 In, 보스 배너 Out
 		Overlay_playerturn->SetVisibility(ESlateVisibility::HitTestInvisible);
-		if (PlayerTurn_In)  PlayAnimation(PlayerTurn_In, 0.f, 1);
-	}
-	else
-	{
-		if (PlayerTurn_Out) PlayAnimation(PlayerTurn_Out, 0.f, 1);
+		if (PlayerTurn_In) PlayAnimation(PlayerTurn_In, 0.f, 1);
+		if (BossTurn_Out && Overlay_bossturn->IsVisible()) PlayAnimation(BossTurn_Out, 0.f, 1);
 	}
 }
 
 void UBattleHUDWidget::ShowBossTurn(bool bShow)
 {
-	// 상대 배너 먼저 꺼주기
-	if (Overlay_playerturn && PlayerTurn_Out && Overlay_playerturn->IsVisible())
-	{
-		PlayAnimation(PlayerTurn_Out, 0.f, 1);
-	}
-
-	if (!Overlay_bossturn) return;
+	if (!Overlay_bossturn || !Overlay_playerturn) return;
 
 	if (bShow)
 	{
+		// 보스 턴 시작 → 자기 배너 In, 플레이어 배너 Out
 		Overlay_bossturn->SetVisibility(ESlateVisibility::HitTestInvisible);
-		if (BossTurn_In)  PlayAnimation(BossTurn_In, 0.f, 1);
-	}
-	else
-	{
-		if (BossTurn_Out) PlayAnimation(BossTurn_Out, 0.f, 1);
+		if (BossTurn_In) PlayAnimation(BossTurn_In, 0.f, 1);
+		if (PlayerTurn_Out && Overlay_playerturn->IsVisible()) PlayAnimation(PlayerTurn_Out, 0.f, 1);
 	}
 }
+
+
 
 void UBattleHUDWidget::PlayParrySuccessEffect()
 {

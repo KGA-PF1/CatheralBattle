@@ -26,6 +26,8 @@ void ATBPlayerCharacter::BeginPlay()
 	Super::BeginPlay();
 	CacheParry();
 	EnsureParryMontageInjected();
+
+
 }
 
 void ATBPlayerCharacter::CacheParry()

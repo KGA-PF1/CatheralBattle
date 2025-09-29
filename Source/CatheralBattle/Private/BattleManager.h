@@ -92,6 +92,13 @@ public:
 	UPROPERTY(EditAnywhere, Category = "TB|Spawn")
 	bool bRelocateExistingBoss = true;
 
+	EPlayerCommand PendingCommand;
+
+	UFUNCTION() void PlayPlayerHitReact();
+	UFUNCTION() void PlayBossHitReact();
+
+	void UpdateHUDSnapshot();
+
 
 protected:
 	virtual void BeginPlay() override;
@@ -117,6 +124,7 @@ private:
 	void  CheckEnd();
 
 	UFUNCTION() void OnPlayerHpChanged(float NewHp, float MaxHp);
+	UFUNCTION() void OnPlayerUltChanged(float Cur, float Max);
 	UFUNCTION() void OnBossPatternFinished();
 
 	// UI
@@ -124,7 +132,7 @@ private:
 	UPROPERTY() UBattleHUDWidget* HUD = nullptr;
 
 	void ShowPlayerUI(bool bShowMenu);
-	void UpdateHUDSnapshot();
+
 	void BindRuntimeSignals();
 
 	UFUNCTION() void HandleMenuConfirm(EPlayerCommand Command);

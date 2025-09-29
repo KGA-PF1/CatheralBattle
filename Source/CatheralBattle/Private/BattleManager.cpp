@@ -15,10 +15,15 @@
 
 FTimerHandle Timer_NextTurn;
 
+static bool IsUltReady(APlayerCharacter* P) {
+	return (P && P->GetUltGauge() >= 100.f && P->Stats.AP >= 6);
+}
+
 ABattleManager::ABattleManager()
 {
 	PrimaryActorTick.bCanEverTick = false;
 }
+
 
 void ABattleManager::BeginPlay()
 {
@@ -47,17 +52,15 @@ void ABattleManager::Initialize(APlayerCharacter* InPlayer, ABoss_Sevarog* InBos
 	if (InProxy) { ParryProxy = InProxy; }
 	else if (!ParryProxy) { TryAutoWireProxy(); }
 
-	// Parry 성공 토스트
-	if (UParryComponent* PCmp = PlayerRef->FindComponentByClass<UParryComponent>()) {
-		PCmp->OnParrySuccess.AddDynamic(this, &ABattleManager::OnParryToast);
-	}
-	if (BossRef) { BossRef->OnBossDealtDamage.AddDynamic(this, &ABattleManager::OnBossDealDmg); }
 
+
+	if (BossRef) { BossRef->OnBossDealtDamage.AddDynamic(this, &ABattleManager::OnBossDealDmg); }
 
 	// 플레이어 사망 감지
 	if (PlayerRef)
 	{
 		PlayerRef->OnHpChanged.AddDynamic(this, &ABattleManager::OnPlayerHpChanged);
+		PlayerRef->OnUltGaugeChanged.AddDynamic(this, &ABattleManager::OnPlayerUltChanged);
 	}
 	// 보스 패턴 종료 감지
 	if (BossRef)
@@ -65,6 +68,16 @@ void ABattleManager::Initialize(APlayerCharacter* InPlayer, ABoss_Sevarog* InBos
 		BossRef->OnPatternFinished.AddDynamic(this, &ABattleManager::OnBossPatternFinished);
 		BossRef->OnPatternPerfect.AddDynamic(this, &ABattleManager::OnBossPatternPerfect);
 		BossRef->OnBossHpChanged.AddDynamic(this, &ABattleManager::UpdateHUDSnapshot);
+	}
+
+	if (BossRef && PlayerRef)
+	{
+		if (UParryComponent* PC = PlayerRef->FindComponentByClass<UParryComponent>())
+		{
+			BossRef->OnBossArmParry.AddDynamic(PC, &UParryComponent::OnBossArm);
+			PC->OnParrySuccess.Clear(); // 중복 방지
+			PC->OnParrySuccess.AddDynamic(this, &ABattleManager::OnParryToast);
+		}
 	}
 
 	BindRuntimeSignals();
@@ -119,6 +132,40 @@ void ABattleManager::StartBattle()
 		if (HUD) { HUD->AddToViewport(50); HUD->SetVisibility(ESlateVisibility::Visible); }
 	}
 
+	if (OriginalPawn)
+	{
+		if (APlayerCharacter* OldP = Cast<APlayerCharacter>(OriginalPawn))
+		{
+			if (UParryComponent* OldPC = OldP->FindComponentByClass<UParryComponent>())
+			{
+				if (BossRef)
+				{
+					BossRef->OnBossArmParry.RemoveDynamic(OldPC, &UParryComponent::OnBossArm);
+				}
+				OldPC->OnParrySuccess.RemoveDynamic(this, &ABattleManager::OnParryToast);
+			}
+		}
+	}
+
+	// 2) TB 플레이어의 Parry 바인딩 추가(중복 없이)
+	if (UParryComponent* NewPC = PlayerRef->FindComponentByClass<UParryComponent>())
+	{
+		if (BossRef)
+		{
+			BossRef->OnBossArmParry.AddUniqueDynamic(NewPC, &UParryComponent::OnBossArm);
+		}
+		NewPC->OnParrySuccess.RemoveDynamic(this, &ABattleManager::OnParryToast); // 안전차단
+		NewPC->OnParrySuccess.AddUniqueDynamic(this, &ABattleManager::OnParryToast);
+	}
+
+	// 3) 프록시도 TB로 다시 캐싱(이미 있음)
+	if (ParryProxy) { ParryProxy->CacheParryComponent(); }
+
+	if (ATBPlayerCharacter* TB = Cast<ATBPlayerCharacter>(PlayerRef))
+	{
+		TB->bTurnBased = true; // 스킬 사용 시 AP 체크 발동
+	}
+
 	bRunning = true;
 	LastPatternIdx = -1;
 	EnterPlayerTurn();
@@ -165,23 +212,22 @@ void ABattleManager::NotifyPlayerTurnDone()
 	ShowPlayerUI(false);
 	CheckEnd();
 	if (!bRunning) return;
-	EnterBossTurn();
 
 	// ★ 3초 대기 후 보스 턴
 	GetWorldTimerManager().ClearTimer(Timer_NextTurn);
-	GetWorldTimerManager().SetTimer(Timer_NextTurn, this, &ABattleManager::EnterBossTurn, 3.0f, false);
-
-	// 턴 배너 끄기
-	if (HUD) HUD->ShowPlayerTurn(false);
+	GetWorldTimerManager().SetTimer(Timer_NextTurn, this, &ABattleManager::EnterBossTurn, 1.0f, false);
 }
 
 void ABattleManager::EnterPlayerTurn()
 {
 	CurrentTurn = ETurn::Player;
 	SetParryEnabled(false);
-	ShowPlayerUI(true);       // 메뉴 ON
+	ShowPlayerUI(true);
 	UpdateHUDSnapshot();
-	if (HUD) HUD->ShowPlayerTurn(true);   // 배너 ON
+
+	if (HUD) {
+		HUD->ShowPlayerTurn(true);
+	}
 }
 
 void ABattleManager::EnterBossTurn() {
@@ -199,7 +245,9 @@ void ABattleManager::EnterBossTurn() {
 	}
 	if (BossRef) { BossRef->PlayPatternMontage(Chosen, PlayerRef); }
 
-	if (HUD) HUD->ShowBossTurn(true);     // ★ 배너 ON
+	if (HUD) {
+		HUD->ShowBossTurn(true);
+	}
 }
 
 int32 ABattleManager::PickMontageIndex() const
@@ -240,18 +288,24 @@ void ABattleManager::OnPlayerHpChanged(float NewHp, float MaxHp)
 	if (NewHp <= 0.f) { EndBattle(); }
 }
 
+void ABattleManager::OnPlayerUltChanged(float Current, float Max)
+{
+	if (HUD) HUD->SetUlt(Current, Max);
+	if (TurnMenu)
+	{
+		TurnMenu->UpdateUltReady(Current >= Max);
+	}
+}
+
 void ABattleManager::OnBossPatternFinished()
 {
 	if (!bRunning) return;
 	CheckEnd();
 	if (!bRunning) return;
-	EnterPlayerTurn();
 
 	// ★ 3초 대기 후 플레이어 턴
 	GetWorldTimerManager().ClearTimer(Timer_NextTurn);
-	GetWorldTimerManager().SetTimer(Timer_NextTurn, this, &ABattleManager::EnterPlayerTurn, 3.0f, false);
-
-	if (HUD) HUD->ShowBossTurn(false);
+	GetWorldTimerManager().SetTimer(Timer_NextTurn, this, &ABattleManager::EnterPlayerTurn, 1.0f, false);
 }
 
 void ABattleManager::BindRuntimeSignals() {
@@ -286,9 +340,11 @@ void ABattleManager::ShowPlayerUI(bool bShowMenu)
 			if (TurnMenu)
 			{
 				TurnMenu->OnConfirm.AddDynamic(this, &ABattleManager::HandleMenuConfirm);
+				TurnMenu->AddToViewport(100);        
 
-				TurnMenu->AddToViewport(100);                             // 메뉴 최상단
-				TurnMenu->SetUltimateEnabled(PlayerRef && PlayerRef->GetUltGauge() >= 100.f);
+				const bool bReady = IsUltReady(PlayerRef);
+				TurnMenu->SetUltimateEnabled(bReady);
+				TurnMenu->UpdateUltReady(bReady);
 			}
 		}
 		if (TurnMenu)
@@ -316,66 +372,79 @@ void ABattleManager::UpdateHUDSnapshot() {
 	if (!HUD) return;
 	if (PlayerRef) { HUD->SetPlayerHP(PlayerRef->GetHp(), PlayerRef->GetMaxHp()); HUD->SetAP(PlayerRef->Stats.AP); HUD->SetUlt(PlayerRef->GetUltGauge(), 100.f); }
 	if (BossRef) { HUD->SetBossHP(BossRef->Hp, BossRef->MaxHp); }
+	if (TurnMenu) { TurnMenu->UpdateUltReady(IsUltReady(PlayerRef)); }
 }
 
 // 선택지 확정 시 플레이어 연출 + 데미지 처리
 void ABattleManager::HandleMenuConfirm(EPlayerCommand Command)
 {
-	// 플레이어 연출(공/스/스)
+	if (!PlayerRef) return;
+
+	auto UseAP = [&](int32 Cost) -> bool {
+		if (PlayerRef->Stats.AP < Cost) {
+			if (HUD) HUD->ShowToast(TEXT("Not enough AP"), 0.7f);
+			return false;
+		}
+		PlayerRef->Stats.AP -= Cost;
+		HUD->SetAP(PlayerRef->Stats.AP);
+		return true;
+	};
+
+	bool bCanExecute = true;
+	switch (Command) {
+	case EPlayerCommand::Attack:
+		break; // Attack은 AP 소모 없음
+	case EPlayerCommand::Skill1:
+		if (!UseAP(2)) bCanExecute = false;
+		break;
+	case EPlayerCommand::Skill2:
+		if (!UseAP(3)) bCanExecute = false;
+		break;
+	case EPlayerCommand::Ultimate:
+		if (PlayerRef->GetUltGauge() < 100.f) {
+			HUD->ShowToast(TEXT("Not enough Ult"), 0.7f);
+			bCanExecute = false;
+		}
+		if (bCanExecute && !UseAP(6)) bCanExecute = false;
+		if (bCanExecute) {
+			PlayerRef->AddUltGauge(-100.f);
+			HUD->SetUlt(PlayerRef->GetUltGauge(), 100.f);
+		}
+		break;
+	}
+
+	if (!bCanExecute) return; // 조건 안 맞으면 스킬 취소
+
+	PendingCommand = Command;
+
 	if (ATBPlayerCharacter* TB = Cast<ATBPlayerCharacter>(PlayerRef))
 	{
 		if (UAnimMontage* M = TB->GetMontageByCommand(Command))
-		{
-			PlayPlayerMontage(M); // 종료 콜백에서 턴 진행
-		}
+			PlayPlayerMontage(M);
 	}
-
-	// (기존) 데미지/게이지 처리
-	switch (Command) {
-	case EPlayerCommand::Attack:
-		if (BossRef) { BossRef->ApplyDamageToBoss(20.f); }
-		if (HUD) { HUD->ShowToast(TEXT("Attack -20"), 0.7f); }
-		if (PlayerRef) { PlayerRef->Stats.AP = FMath::Clamp(PlayerRef->Stats.AP + 1.f, 0.f, 6.f); if (HUD) HUD->SetAP(PlayerRef->Stats.AP); HUD->ShowToast(TEXT("AP +1"), 0.7f); }
-		break;
-	case EPlayerCommand::Skill1:
-		if (BossRef) { BossRef->ApplyDamageToBoss(30.f); }
-		if (HUD) { HUD->ShowToast(TEXT("Skill1 -30"), 0.7f); }
-		break;
-	case EPlayerCommand::Skill2:
-		if (BossRef) { BossRef->ApplyDamageToBoss(30.f); }
-		if (HUD) { HUD->ShowToast(TEXT("Skill2 -30"), 0.7f); }
-		break;
-	case EPlayerCommand::Ultimate:
-		if (PlayerRef && PlayerRef->GetUltGauge() >= 100.f) {
-			if (BossRef) { BossRef->ApplyDamageToBoss(120.f); }
-			PlayerRef->AddUltGauge(-100.f);
-			if (HUD) { HUD->SetUlt(PlayerRef->GetUltGauge(), 100.f); HUD->ShowToast(TEXT("ULT! -120"), 0.9f); }
-		}
-		else {
-			if (HUD) { HUD->ShowToast(TEXT("Not enough ULT"), 0.6f); }
-			return;
-		}
-		break;
-	}
-
-	UpdateHUDSnapshot();
-	// 턴 진행은 몽타주 끝(OnPlayerMontageEnded)에서.
 }
 
 void ABattleManager::OnBossDealDmg(float Amount)
 {
-	// 토스트
-	if (HUD) { HUD->ShowToast(FString::Printf(TEXT("-%.0f"), Amount), 0.6f); }
-	// ★ 히트리액트 재생(턴제 전용일 때만)
-	if (ATBPlayerCharacter* TB = Cast<ATBPlayerCharacter>(PlayerRef))
+	if (!PlayerRef) return;
+
+	// ★ 체력 감소
+	PlayerRef->TakeDamage(Amount);
+
+	// 토스트 출력
+	if (HUD)
 	{
-		TB->PlayHitReact();
+		HUD->ShowToast(FString::Printf(TEXT("Player -%.0f"), Amount), 0.6f);
 	}
+
+	PlayPlayerHitReact();
+
+	// HUD 업데이트 (사실 TakeDamage에서 Broadcast로 갱신됨)
 	UpdateHUDSnapshot();
 }
 
 
-// 스켈레톤 비교(컴파일 에러 수정)
+
 void ABattleManager::PlayPlayerMontage(UAnimMontage* MontageToPlay)
 {
 	if (!PlayerRef) { UE_LOG(LogTemp, Error, TEXT("[BM] PlayerRef nullptr")); NotifyPlayerTurnDone(); return; }
@@ -415,6 +484,9 @@ void ABattleManager::OnPlayerMontageEnded(UAnimMontage* Montage, bool bInterrupt
 	{
 		Anim->OnMontageEnded.RemoveDynamic(this, &ABattleManager::OnPlayerMontageEnded);
 	}
+
+	
+
 	UpdateHUDSnapshot();
 	NotifyPlayerTurnDone();
 }
@@ -441,17 +513,35 @@ void ABattleManager::SetOriginalPawnVisible(bool bVisible)
 	}
 }
 
+// 패링 성공시 호출
 void ABattleManager::OnParryToast()
 {
-	if (HUD) {
-		HUD->SetAP(PlayerRef ? PlayerRef->Stats.AP : 0.f);
-	}
+	if (!HUD) return;
+
+	HUD->SetAP(PlayerRef ? PlayerRef->Stats.AP : 0.f);
+	HUD->PlayParrySuccessEffect();
+	if (TurnMenu) { TurnMenu->UpdateUltReady(IsUltReady(PlayerRef)); }
 }
 
 void ABattleManager::OnBossPatternPerfect()
 {
-	if (HUD) {
-		HUD->PlayParryPerfectEffect();
-	}
+	if (!HUD) return;
+
+	//HUD->ShowToast(TEXT("ALL BLOCK! ULT +10"), 0.9f);
+	HUD->PlayParryPerfectEffect();
+
 	UpdateHUDSnapshot();
+}
+
+void ABattleManager::PlayPlayerHitReact()
+{
+	if (ATBPlayerCharacter* TB = Cast<ATBPlayerCharacter>(PlayerRef))
+	{
+		TB->PlayHitReact();
+	}
+}
+
+void ABattleManager::PlayBossHitReact()
+{
+	if (BossRef) BossRef->PlayHitReact();
 }

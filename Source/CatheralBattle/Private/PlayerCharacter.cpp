@@ -470,3 +470,12 @@ void APlayerCharacter::MirrorAllTo(APlayerCharacter* Dest, bool bCopyCooldowns) 
 	Dest->OnUltGaugeChanged.Broadcast(Dest->Stats.UltGauge, Dest->Stats.MaxUltGauge);
 }
 
+
+float APlayerCharacter::GetSkillDamage(ESkillInput Input) const
+{
+	if (const FSkillSpec* Found = SkillTable.Find(Input))
+	{
+		return Stats.AtkPoint * Found->DamageMultiplier;
+	}
+	return 0.f;
+}
