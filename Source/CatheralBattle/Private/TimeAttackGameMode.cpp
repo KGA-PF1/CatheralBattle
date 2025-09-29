@@ -23,13 +23,13 @@ void ATimeAttackGameMode::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
 
-	if (TimeRemaining > 0.f)
+	if (TimeRemaining != -1.f)
 	{
 		TimeRemaining -= DeltaSeconds;
 
 		if (TimeRemaining <= 0.f)
 		{
-			TimeRemaining = 0.f;
+			TimeRemaining = -1.f;
 			UE_LOG(LogTemp, Warning, TEXT("The time has come"));
 			// 때가 되었다 .. 라는 의미의 문구 썼어요
 		}

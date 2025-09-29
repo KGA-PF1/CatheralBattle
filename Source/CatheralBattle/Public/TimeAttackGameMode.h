@@ -19,7 +19,7 @@ protected:
 	virtual void Tick(float DeltaSeconds) override;
 
 private:
-	// 시작 시간 (기본값 120초)
+	// 시작 시간 (기본값 초)
 	UPROPERTY(EditAnywhere, Category = "Timer")
 	float InitialTime = 60.f;
 
