@@ -129,6 +129,7 @@ private:
 
 	UFUNCTION() void HandleMenuConfirm(EPlayerCommand Command);
 	UFUNCTION() void OnParryToast();
+	UFUNCTION() void OnBossPatternPerfect();
 	UFUNCTION() void OnBossDealDmg(float Amt);
 
 	// 플레이어 교체

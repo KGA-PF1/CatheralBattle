@@ -63,7 +63,8 @@ void ABattleManager::Initialize(APlayerCharacter* InPlayer, ABoss_Sevarog* InBos
 	if (BossRef)
 	{
 		BossRef->OnPatternFinished.AddDynamic(this, &ABattleManager::OnBossPatternFinished);
-		BossRef->OnBossHpChanged.AddDynamic(this, &ABattleManager::UpdateHUDSnapshot);       // ★
+		BossRef->OnPatternPerfect.AddDynamic(this, &ABattleManager::OnBossPatternPerfect);
+		BossRef->OnBossHpChanged.AddDynamic(this, &ABattleManager::UpdateHUDSnapshot);
 	}
 
 	BindRuntimeSignals();
@@ -443,7 +444,14 @@ void ABattleManager::SetOriginalPawnVisible(bool bVisible)
 void ABattleManager::OnParryToast()
 {
 	if (HUD) {
-		HUD->ShowToast(TEXT("Block!  AP +1"), 0.8f);
 		HUD->SetAP(PlayerRef ? PlayerRef->Stats.AP : 0.f);
 	}
+}
+
+void ABattleManager::OnBossPatternPerfect()
+{
+	if (HUD) {
+		HUD->PlayParryPerfectEffect();
+	}
+	UpdateHUDSnapshot();
 }

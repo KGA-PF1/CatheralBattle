@@ -31,15 +31,7 @@ void ABoss_Sevarog::NotifyPatternBegin(APlayerCharacter* Target, int32 InExpecte
 
 void ABoss_Sevarog::NotifyPatternEnd()
 {
-	// 전 히트 성공 → Ult +10
-	if (CurrentTarget.IsValid() && ExpectedHits > 0 && SucceededHits.Num() == ExpectedHits)
-	{
-		CurrentTarget.Get()->AddUltGauge(10.f);
-		OnPatternPerfect.Broadcast(); // ★ 퍼펙트 패리 신호
-	}
 	OnPatternFinished.Broadcast();
-
-	// 정리
 	ExpectedHits = 0;
 	SucceededHits.Empty();
 	CurrentTarget = nullptr;
@@ -60,8 +52,15 @@ void ABoss_Sevarog::NotifyParrySuccess(APlayerCharacter* Target, int32 HitIndex)
 {
 	if (!Target) return;
 
-	SucceededHits.Add(HitIndex);           // 해당 히트 피해 0
-	Target->Stats.AP = FMath::Clamp(Target->Stats.AP + 1.f, 0.f, 6.f); // AP +1
+	SucceededHits.Add(HitIndex);
+	Target->Stats.AP = FMath::Clamp(Target->Stats.AP + 1.f, 0.f, 6.f);
+
+	// ★ 모든 히트 성공 순간에 퍼펙트 신호
+	if (ExpectedHits > 0 && SucceededHits.Num() == ExpectedHits)
+	{
+		Target->AddUltGauge(10.f);
+		OnPatternPerfect.Broadcast();
+	}
 }
 
 void ABoss_Sevarog::ApplyDamageToBoss(float Damage)

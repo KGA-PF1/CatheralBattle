@@ -47,26 +47,39 @@ public:
 	UFUNCTION(BlueprintCallable) void ShowPlayerTurn(bool bShow);
 	UFUNCTION(BlueprintCallable) void ShowBossTurn(bool bShow);
 
+	// 패링 결과 API
+	UFUNCTION(BlueprintCallable) void PlayParrySuccessEffect();
+	UFUNCTION(BlueprintCallable) void PlayParryPerfectEffect();
+
 protected:
 	virtual void NativeConstruct() override;
 
-	// ★ 오버레이 바인딩
+	// 오버레이
 	UPROPERTY(meta = (BindWidgetOptional)) UOverlay* Overlay_playerturn = nullptr;
 	UPROPERTY(meta = (BindWidgetOptional)) UOverlay* Overlay_bossturn = nullptr;
 
-	// ★ 애니메이션 바인딩(UMG 이름과 동일)
-	UPROPERTY(meta = (BindWidgetAnimOptional)) UWidgetAnimation* PlayerTurn_In = nullptr;
-	UPROPERTY(meta = (BindWidgetAnimOptional)) UWidgetAnimation* PlayerTurn_Out = nullptr;
-	UPROPERTY(meta = (BindWidgetAnimOptional)) UWidgetAnimation* BossTurn_In = nullptr;
-	UPROPERTY(meta = (BindWidgetAnimOptional)) UWidgetAnimation* BossTurn_Out = nullptr;
+	// 애니메이션
+	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UWidgetAnimation* PlayerTurn_In = nullptr;
+
+	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UWidgetAnimation* PlayerTurn_Out = nullptr;
+
+	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UWidgetAnimation* BossTurn_In = nullptr;
+
+	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UWidgetAnimation* BossTurn_Out = nullptr;
 
 
 	// ★ 패링 결과	
-	UPROPERTY(meta = (BindWidgetAnimOptional)) class UWidgetAnimation* Parry_Success = nullptr;
-	UPROPERTY(meta = (BindWidgetAnimOptional)) class UWidgetAnimation* Parry_Perfect = nullptr;
+	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UWidgetAnimation* Parry_Success = nullptr;
 
-	UFUNCTION(BlueprintCallable) void PlayParrySuccessEffect();
-	UFUNCTION(BlueprintCallable) void PlayParryPerfectEffect();
+	UPROPERTY(Transient, meta = (BindWidgetAnimOptional))
+	UWidgetAnimation* Parry_Perfect = nullptr;
+
+
 
 private:
 	TArray<UImage*> APImages; // 6칸
