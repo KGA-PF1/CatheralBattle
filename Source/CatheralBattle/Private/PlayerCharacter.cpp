@@ -227,16 +227,37 @@ float APlayerCharacter::TakeDamage(float DamageAmount,
 	AActor* DamageCauser)
 {
 	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
-	if (DamageAmount <= 0 || IsDead()) return 0.f;
+	if (DamageAmount <= 0) return 0.f;
 
 	const int32 OldHp = Stats.Hp;
 	Stats.Hp = FMath::Clamp(Stats.Hp - ActualDamage, 0, Stats.MaxHp);
 	if (Stats.Hp != OldHp)
 	{
 		OnHpChanged.Broadcast(Stats.Hp, Stats.MaxHp);
+
+		if (!IsDead() && HitMontage)
+		{
+			if (UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+			{
+				float Len = Anim->Montage_Play(HitMontage);
+				if (Len > 0.f)
+				{
+					bCanAttack = false;
+
+					//잠금 해제 이벤트 바인딩(끝, 중단)
+					FOnMontageBlendingOutStarted BlendOut;
+					BlendOut.BindUObject(this, &APlayerCharacter::OnMontageBlendOut);
+					Anim->Montage_SetBlendingOutDelegate(BlendOut, HitMontage);
+
+					FOnMontageEnded Ended;
+					Ended.BindUObject(this, &APlayerCharacter::OnMontageEnded);
+					Anim->Montage_SetEndDelegate(Ended, HitMontage);
+				}
+			}
+		}
 	}
 
-	if (IsDead()) 
+	if (IsDead())
 	{
 		OnDeath();
 	}
@@ -246,13 +267,39 @@ float APlayerCharacter::TakeDamage(float DamageAmount,
 
 void APlayerCharacter::TakeDamage(float Damage) 
 { 
-	if (Damage <= 0 || IsDead()) return; 
-	const int32 OldHp = Stats.Hp; 
-	Stats.Hp = FMath::Clamp(Stats.Hp - Damage, 0, Stats.MaxHp); 
-	if (Stats.Hp != OldHp) 
-	{ 
-		OnHpChanged.Broadcast(Stats.Hp, Stats.MaxHp); 
-	} 
+	if (Damage <= 0) return;
+
+	const int32 OldHp = Stats.Hp;
+	Stats.Hp = FMath::Clamp(Stats.Hp - Damage, 0, Stats.MaxHp);
+	if (Stats.Hp != OldHp)
+	{
+		OnHpChanged.Broadcast(Stats.Hp, Stats.MaxHp);
+		bCanAttack = false;
+
+		if (!IsDead() && HitMontage)
+		{
+			if (UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+			{
+				float Len = Anim->Montage_Play(HitMontage);
+				if (Len > 0.f)
+				{
+					//잠금 해제 이벤트 바인딩(끝, 중단)
+					FOnMontageBlendingOutStarted BlendOut;
+					BlendOut.BindUObject(this, &APlayerCharacter::OnMontageBlendOut);
+					Anim->Montage_SetBlendingOutDelegate(BlendOut, HitMontage);
+
+					FOnMontageEnded Ended;
+					Ended.BindUObject(this, &APlayerCharacter::OnMontageEnded);
+					Anim->Montage_SetEndDelegate(Ended, HitMontage);
+				}
+			}
+		}
+	}
+
+	if (IsDead())
+	{
+		OnDeath();
+	}
 }
 
 void APlayerCharacter::Respawn()
@@ -268,14 +315,39 @@ void APlayerCharacter::OnDeath()
 {
 	SetCanBeDamaged(false); //데미지 무시
 
+	if (DeathMontage)
+	{
+		if (UAnimInstance* Anim = GetMesh()->GetAnimInstance())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("데스몽타주"));
+
+			//델리게이트를 변수로 만들어서
+			FOnMontageEnded EndDelegate;
+			EndDelegate.BindUObject(this, &APlayerCharacter::OnMontageEnded);
+
+			//lvalue로 전달함
+			Anim->Montage_SetEndDelegate(EndDelegate, DeathMontage);
+
+			//재생
+			Anim->Montage_Play(DeathMontage);
+		}
+	}
+	else
+	{
+		if (UAnimInstance* Anim = GetMesh()->GetAnimInstance())
+		{
+			Anim->StopAllMontages(0.2f);
+		}
+	}
+
 	//이동, 입력 정지
 	if (UCharacterMovementComponent* Move = GetCharacterMovement())
 	{
 		Move->StopMovementImmediately();
 		Move->DisableMovement();
 		Move->SetMovementMode(MOVE_None);
-		Move->Velocity = FVector::ZeroVector;
-		Move->bOrientRotationToMovement = false;
+		//Move->Velocity = FVector::ZeroVector;
+		//Move->bOrientRotationToMovement = false;
 	}
 
 	if (APlayerController* PC = Cast<APlayerController>(GetController()))
@@ -283,14 +355,7 @@ void APlayerCharacter::OnDeath()
 		DisableInput(PC);
 	}
 
-	//애니메이션 정리
-	if (USkeletalMeshComponent* MeshComp = GetMesh())
-	{
-		if (UAnimInstance* Anim = MeshComp->GetAnimInstance())
-		{
-			Anim->StopAllMontages(0.2f);
-		}
-	}
+
 	
 	//충돌 처리
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -369,7 +434,11 @@ bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput Inpu
 	//중복 시전 방지
 	if (UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
 	{
-		if (Anim->IsAnyMontagePlaying()) return false;
+		if (Anim->IsAnyMontagePlaying()) 
+		{
+			UE_LOG(LogTemp, Warning, TEXT("Attack blocked: IsAnyMontagePlaying() = true"));
+			return false;
+		}
 	}
 
 	//간단 쿨타임 체크
@@ -608,11 +677,31 @@ void APlayerCharacter::BroadcastCooldown(ESkillInput Input, float Remaining, flo
 
 void APlayerCharacter::OnMontageBlendOut(UAnimMontage* Montage, bool bInterrupted)
 {
+	if (Montage == HitMontage)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("BlendOut완료"));
+	}
+
 	UnLockMoveInput();
 	bCanAttack = true;
 }
 void APlayerCharacter::OnMontageEnded(UAnimMontage* Montage, bool bInterrupted)
 {
+	if (Montage == DeathMontage)
+	{
+		//사망용처리
+		GetCharacterMovement()->DisableMovement();   // 다시 안 움직이게
+		bCanAttack = false;
+		GetMesh()->bPauseAnims = true;
+		return;
+	}
+
+	// HitMontage 종료 디버그 로그
+	if (Montage == HitMontage)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("HitMontage ended, setting bCanAttack to true"));
+	}
+
 	UnLockMoveInput();
 	bCanAttack = true;
 }

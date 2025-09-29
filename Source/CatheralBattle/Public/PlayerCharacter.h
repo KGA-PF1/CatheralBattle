@@ -116,14 +116,8 @@ public:
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-#pragma region Camera and Input
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
-	USpringArmComponent* CameraBoom;
-
-	/** Follow camera */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
-	UCameraComponent* FollowCamera;
-
+#pragma region Input
+public:
 	/** MappingContext */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputMappingContext* DefaultMappingContext;
@@ -157,26 +151,31 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* ShieldAction;
-#pragma endregion
-protected:
 
+protected:
 	/** Called for movement input */
 	void Move(const FInputActionValue& Value);
 
 	/** Called for looking input */
 	void Look(const FInputActionValue& Value);
+#pragma endregion
 
+#pragma region Camera
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+	USpringArmComponent* CameraBoom;
 
+	/** Follow camera */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+	UCameraComponent* FollowCamera;
 public:
 	/** Returns CameraBoom subobject **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	/** Returns FollowCamera subobject **/
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	FPlayerStats Stats;
+#pragma endregion
 
 #pragma region Sprint
+public:
 	//Sprint
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Sprint")
 	float SprintMultiplier = 1.5f;
@@ -190,8 +189,6 @@ public:
 	UFUNCTION(BlueprintCallable)
 	void SyncMovementSpeed();
 #pragma endregion
-
-
 
 	//Event 변수들
 #pragma region Event
@@ -237,6 +234,14 @@ public:
 #pragma endregion
 
 public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	FPlayerStats Stats;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Combat|Montage")
+	UAnimMontage* HitMontage;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Combat|Montage")
+	UAnimMontage* DeathMontage;
+
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	bool IsDead() const { return Stats.Hp <= 0; }
 
@@ -250,7 +255,7 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	void Respawn();
 
-	UFUNCTION(BlueprintCallable, Category="Stats")
+	UFUNCTION(BlueprintCallable, Category = "Stats")
 	virtual void OnDeath();
 	//UltGauge
 	//TODO: 몬스터 죽을 때 AddUltGauge하게끔
@@ -269,6 +274,8 @@ public:
 public:
 	UPROPERTY(BlueprintReadWrite, Category = "State")
 	bool bCanAttack = true;
+	UPROPERTY(BlueprintReadWrite, Category = "State")
+	bool bIsAttackingTest = false;
 
 	UFUNCTION(BlueprintCallable, Category = "Skill")
 	bool TryUseSkill(ESkillInput InputKind);
@@ -352,7 +359,7 @@ public:
 	float QSkillRange = 200.f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
 	float ESkillRange = 600.f;
-	
+
 
 	// 공격 데미지
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
