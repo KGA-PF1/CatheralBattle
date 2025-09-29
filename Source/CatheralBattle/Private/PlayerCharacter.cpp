@@ -62,23 +62,7 @@ APlayerCharacter::APlayerCharacter()
 	Weapon->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	Weapon->SetGenerateOverlapEvents(true);
 
-	//QSphere = CreateDefaultSubobject<USphereComponent>(TEXT("QSphere"));
-	//QSphere->SetupAttachment(GetRootComponent());      // 필요하면 소켓에 붙여도 됨
-	//QSphere->InitSphereRadius(300.f);
-	//QSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	//QSphere->SetCollisionObjectType(ECC_WorldDynamic);
-	//QSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
-	//QSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-	//QSphere->SetGenerateOverlapEvents(true);
-
-	//ESphere = CreateDefaultSubobject<USphereComponent>(TEXT("ESphere"));
-	//ESphere->SetupAttachment(GetRootComponent());
-	//ESphere->InitSphereRadius(420.f);
-	//ESphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	//ESphere->SetCollisionObjectType(ECC_WorldDynamic);
-	//ESphere->SetCollisionResponseToAllChannels(ECR_Ignore);
-	//ESphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-	//ESphere->SetGenerateOverlapEvents(true);
+	Stats.Hp = Stats.MaxHp;
 }
 
 void APlayerCharacter::BeginPlay()
@@ -237,15 +221,38 @@ float APlayerCharacter::GetCooldownPercent(ESkillInput Input) const
 	return (Duration > 0.f) ? (Remaining / Duration) : 0.f;
 }
 
-void APlayerCharacter::TakeDamage(float Damage)
+float APlayerCharacter::TakeDamage(float DamageAmount,
+	FDamageEvent const& DamageEvent,
+	AController* EventInstigator,
+	AActor* DamageCauser)
 {
-	if (Damage <= 0 || IsDead()) return;
+	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+	if (DamageAmount <= 0 || IsDead()) return 0.f;
+
 	const int32 OldHp = Stats.Hp;
-	Stats.Hp = FMath::Clamp(Stats.Hp - Damage, 0, Stats.MaxHp);
+	Stats.Hp = FMath::Clamp(Stats.Hp - ActualDamage, 0, Stats.MaxHp);
 	if (Stats.Hp != OldHp)
 	{
 		OnHpChanged.Broadcast(Stats.Hp, Stats.MaxHp);
 	}
+
+	if (IsDead()) 
+	{
+		OnDeath();
+	}
+
+	return ActualDamage;
+}
+
+void APlayerCharacter::TakeDamage(float Damage) 
+{ 
+	if (Damage <= 0 || IsDead()) return; 
+	const int32 OldHp = Stats.Hp; 
+	Stats.Hp = FMath::Clamp(Stats.Hp - Damage, 0, Stats.MaxHp); 
+	if (Stats.Hp != OldHp) 
+	{ 
+		OnHpChanged.Broadcast(Stats.Hp, Stats.MaxHp); 
+	} 
 }
 
 void APlayerCharacter::Respawn()
@@ -255,6 +262,44 @@ void APlayerCharacter::Respawn()
 		Stats.Hp = Stats.MaxHp;
 		OnHpChanged.Broadcast(Stats.Hp, Stats.MaxHp);
 	}
+}
+
+void APlayerCharacter::OnDeath()
+{
+	SetCanBeDamaged(false); //데미지 무시
+
+	//이동, 입력 정지
+	if (UCharacterMovementComponent* Move = GetCharacterMovement())
+	{
+		Move->StopMovementImmediately();
+		Move->DisableMovement();
+		Move->SetMovementMode(MOVE_None);
+		Move->Velocity = FVector::ZeroVector;
+		Move->bOrientRotationToMovement = false;
+	}
+
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		DisableInput(PC);
+	}
+
+	//애니메이션 정리
+	if (USkeletalMeshComponent* MeshComp = GetMesh())
+	{
+		if (UAnimInstance* Anim = MeshComp->GetAnimInstance())
+		{
+			Anim->StopAllMontages(0.2f);
+		}
+	}
+	
+	//충돌 처리
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	//컨트롤러 분리(시점 유지 필요없을 경우)
+	//DetachFromControllerPendingDestroy();
+
+	OnPlayerDeath.Broadcast(this);
+
 }
 
 void APlayerCharacter::AddUltGauge(float Amount)

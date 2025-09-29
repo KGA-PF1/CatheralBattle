@@ -31,6 +31,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHpChanged, float, NewHp, float, 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnUltGaugeChanged, float, NewGauge, float, MaxGauge);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnCooldownUpdated, ESkillInput, Input, float, Remaining, float, Duration);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCooldownEnded, ESkillInput, input);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerDeath, class APlayerCharacter*, Player);
 
 USTRUCT(BlueprintType)
 struct FPlayerStats //플레이어 스탯 구조체
@@ -175,6 +176,7 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	FPlayerStats Stats;
 
+#pragma region Sprint
 	//Sprint
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Sprint")
 	float SprintMultiplier = 1.5f;
@@ -187,13 +189,13 @@ public:
 	void StopSprint();
 	UFUNCTION(BlueprintCallable)
 	void SyncMovementSpeed();
-
+#pragma endregion
 
 
 
 	//Event 변수들
 #pragma region Event
-	//Hp - OnDeath?필요
+public:
 	UPROPERTY(BlueprintAssignable, Category = "Event")
 	FOnHpChanged OnHpChanged;
 	UPROPERTY(BlueprintAssignable, Category = "Event")
@@ -202,10 +204,13 @@ public:
 	FOnCooldownUpdated OnCooldownUpdated;
 	UPROPERTY(BlueprintAssignable, Category = "Event|Cooldown")
 	FOnCooldownEnded OnCooldownEnded;
+	UPROPERTY(BlueprintAssignable, Category = "Event")
+	FOnPlayerDeath OnPlayerDeath;
 #pragma endregion
 
 	//UI를 위한 Getter
 #pragma region UI Binding Function
+public:
 	//HP
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	float GetHp() { return Stats.Hp; }
@@ -230,14 +235,23 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Skill|Cooldown")
 	float GetCooldownPercent(ESkillInput Input) const;
 #pragma endregion
+
 public:
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	bool IsDead() const { return Stats.Hp <= 0; }
-	//TODO: ApplyDamage 필요하면 변경
+
 	UFUNCTION(BlueprintCallable, Category = "Stats")
+	virtual float TakeDamage(float DamageAmount,
+		FDamageEvent const& DamageEvent,
+		AController* EventInstigator,
+		AActor* DamageCauser) override;
+
 	void TakeDamage(float Damage);
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	void Respawn();
+
+	UFUNCTION(BlueprintCallable, Category="Stats")
+	virtual void OnDeath();
 	//UltGauge
 	//TODO: 몬스터 죽을 때 AddUltGauge하게끔
 	UFUNCTION(BlueprintCallable, Category = "Stats")
