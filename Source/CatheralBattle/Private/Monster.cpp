@@ -35,6 +35,7 @@ void AMonster::BeginPlay()
 	if (GetMesh() && GetMesh()->GetAnimInstance())
 	{
 		GetMesh()->GetAnimInstance()->OnMontageEnded.AddDynamic(this, &AMonster::OnAttackMontageEnded);
+		GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
 	}
 }
 
@@ -112,7 +113,7 @@ void AMonster::OnDeath()
 	}
 
 	GetMesh()->SetSimulatePhysics(true); // 물리 시뮬레이션 활성화
-	GetMesh()->SetCollisionProfileName(TEXT("Ragdoll"));
+	GetMesh()->SetCollisionProfileName(TEXT("Ragdoll_NoCamera"));
 	GetCharacterMovement()->DisableMovement();
 	GetWorldTimerManager().ClearTimer(AttackTimerHandle);
 	OnMonsterDeath.Broadcast(this);
