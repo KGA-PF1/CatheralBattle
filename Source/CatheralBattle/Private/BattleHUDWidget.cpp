@@ -3,9 +3,17 @@
 #include "Components/VerticalBox.h"
 #include "Components/HorizontalBox.h"
 #include "Components/Image.h"
-#include "Components/TextBlock.h"     // 토스트 메시지용
+#include "Components/TextBlock.h"
 #include "Components/Overlay.h" 
 #include "Blueprint/WidgetTree.h"
+#include <Kismet/GameplayStatics.h>
+#include "Components/CanvasPanel.h"       
+#include "Components/CanvasPanelSlot.h"    
+#include "Blueprint/UserWidget.h"
+#include "DamagePopupWidget.h"
+#include "Blueprint/SlateBlueprintLibrary.h" 
+#include "Blueprint/WidgetLayoutLibrary.h"  
+
 
 void UBattleHUDWidget::NativeConstruct()
 {
@@ -96,4 +104,71 @@ void UBattleHUDWidget::PlayParrySuccessEffect()
 void UBattleHUDWidget::PlayParryPerfectEffect()
 {
 	if (Parry_Perfect) PlayAnimation(Parry_Perfect, 0.f, 1);
+}
+
+void UBattleHUDWidget::ShowDamagePopup(AActor* Target, float Amount)
+{
+	if (!Target || Amount <= 0.f || !PopupCanvas || !PopupWidgetClass) return;
+
+	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if (!PC) return;
+
+	FVector WorldLoc = Target->GetActorLocation() + FVector(0, 0, 120);
+	FVector2D ScreenPos;
+	if (!UWidgetLayoutLibrary::ProjectWorldLocationToWidgetPosition(PC, WorldLoc, ScreenPos, false)) return;
+
+	// ★ Outer는 PlayerController!
+	UDamagePopupWidget* W = CreateWidget<UDamagePopupWidget>(PC, PopupWidgetClass);
+	if (!W) return;
+
+	W->InitPopup(FString::Printf(TEXT("-%d"), FMath::RoundToInt(Amount)), FLinearColor::Red);
+
+	if (UCanvasPanelSlot* CanvasSlot = PopupCanvas->AddChildToCanvas(W))
+	{
+		CanvasSlot->SetAutoSize(true);
+		CanvasSlot->SetAlignment(FVector2D(0.5f, 0.5f));
+		CanvasSlot->SetPosition(ScreenPos);
+	}
+}
+
+void UBattleHUDWidget::ShowAPGainPopup(float Amount)
+{
+	if (Amount <= 0.f || !PopupWidgetClass) return;
+	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if (!PC) return;
+
+	UDamagePopupWidget* W = CreateWidget<UDamagePopupWidget>(PC, PopupWidgetClass);
+	if (!W) return;
+
+	W->InitPopup(FString::Printf(TEXT("+%d"), FMath::RoundToInt(Amount)), FLinearColor::White);
+
+	// CanvasPanel의 중심 좌표를 화면 좌표로 변환
+	FGeometry Geo = APPopupAnchor->GetCachedGeometry();
+	FVector2D LocalCenter = Geo.GetLocalSize() * 0.5f;
+	FVector2D PixelPos, ViewportPos;
+	USlateBlueprintLibrary::LocalToViewport(GetWorld(), Geo, LocalCenter, PixelPos, ViewportPos);
+
+	W->AddToViewport();
+	W->SetPositionInViewport(PixelPos, true);
+}
+
+void UBattleHUDWidget::ShowUltGainPopup_HUD(float Amount)
+{
+	if (Amount <= 0.f || !PopupWidgetClass) return;
+	APlayerController* PC = UGameplayStatics::GetPlayerController(GetWorld(), 0);
+	if (!PC) return;
+
+	UDamagePopupWidget* W = CreateWidget<UDamagePopupWidget>(PC, PopupWidgetClass);
+	if (!W) return;
+
+	W->InitPopup(FString::Printf(TEXT("+%d"), FMath::RoundToInt(Amount)), FLinearColor::Yellow);
+
+	// CanvasPanel의 중심 좌표를 화면 좌표로 변환
+	FGeometry Geo = UltPopupAnchor->GetCachedGeometry();
+	FVector2D LocalCenter = Geo.GetLocalSize() * 0.5f;
+	FVector2D PixelPos, ViewportPos;
+	USlateBlueprintLibrary::LocalToViewport(GetWorld(), Geo, LocalCenter, PixelPos, ViewportPos);
+
+	W->AddToViewport();
+	W->SetPositionInViewport(PixelPos, true);
 }

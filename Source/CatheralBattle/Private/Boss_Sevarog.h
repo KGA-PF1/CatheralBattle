@@ -57,9 +57,9 @@ public:
 	TSet<int32> SucceededHits;
 	int32 ExpectedHits = 0;
 
-
-private:
 	/** 이번 패턴 대상/성공기록 */
 	UPROPERTY() TWeakObjectPtr<APlayerCharacter> CurrentTarget;
+private:
+
 
 };

@@ -28,6 +28,9 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "TB|Montage")
 	UAnimMontage* M_Skill2 = nullptr;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "TB|Montage")
+	UAnimMontage* M_Ultimate = nullptr;
+
 	// 피격/패링 몽타주
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "TB|Montage")
 	UAnimMontage* M_HitReact = nullptr;

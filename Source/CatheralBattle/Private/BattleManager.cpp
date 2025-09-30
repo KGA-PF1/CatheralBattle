@@ -16,7 +16,7 @@
 FTimerHandle Timer_NextTurn;
 
 static bool IsUltReady(APlayerCharacter* P) {
-	return (P && P->GetUltGauge() >= 100.f && P->Stats.AP >= 6);
+	return (P && P->GetUltGauge() >= 100.f);
 }
 
 ABattleManager::ABattleManager()
@@ -74,9 +74,9 @@ void ABattleManager::Initialize(APlayerCharacter* InPlayer, ABoss_Sevarog* InBos
 	{
 		if (UParryComponent* PC = PlayerRef->FindComponentByClass<UParryComponent>())
 		{
-			BossRef->OnBossArmParry.AddDynamic(PC, &UParryComponent::OnBossArm);
 			PC->OnParrySuccess.Clear(); // 중복 방지
 			PC->OnParrySuccess.AddDynamic(this, &ABattleManager::OnParryToast);
+			BossRef->OnBossArmParry.AddDynamic(PC, &UParryComponent::OnBossArm);
 		}
 	}
 
@@ -153,6 +153,7 @@ void ABattleManager::StartBattle()
 		if (BossRef)
 		{
 			BossRef->OnBossArmParry.AddUniqueDynamic(NewPC, &UParryComponent::OnBossArm);
+			BossRef->OnPatternPerfect.AddUniqueDynamic(this, &ABattleManager::OnBossPatternPerfect);
 		}
 		NewPC->OnParrySuccess.RemoveDynamic(this, &ABattleManager::OnParryToast); // 안전차단
 		NewPC->OnParrySuccess.AddUniqueDynamic(this, &ABattleManager::OnParryToast);
@@ -285,6 +286,8 @@ void ABattleManager::TryAutoWireProxy()
 void ABattleManager::OnPlayerHpChanged(float NewHp, float MaxHp)
 {
 	if (HUD) HUD->SetPlayerHP(NewHp, MaxHp); // ★ 즉시 반영
+
+
 	if (NewHp <= 0.f) { EndBattle(); }
 }
 
@@ -375,6 +378,12 @@ void ABattleManager::UpdateHUDSnapshot() {
 	if (TurnMenu) { TurnMenu->UpdateUltReady(IsUltReady(PlayerRef)); }
 }
 
+void ABattleManager::PlayParrySuccessEffectImmediate()
+{
+	if (HUD) HUD->PlayParrySuccessEffect();
+	UpdateHUDSnapshot();
+}
+
 // 선택지 확정 시 플레이어 연출 + 데미지 처리
 void ABattleManager::HandleMenuConfirm(EPlayerCommand Command)
 {
@@ -405,7 +414,6 @@ void ABattleManager::HandleMenuConfirm(EPlayerCommand Command)
 			HUD->ShowToast(TEXT("Not enough Ult"), 0.7f);
 			bCanExecute = false;
 		}
-		if (bCanExecute && !UseAP(6)) bCanExecute = false;
 		if (bCanExecute) {
 			PlayerRef->AddUltGauge(-100.f);
 			HUD->SetUlt(PlayerRef->GetUltGauge(), 100.f);
@@ -516,21 +524,23 @@ void ABattleManager::SetOriginalPawnVisible(bool bVisible)
 // 패링 성공시 호출
 void ABattleManager::OnParryToast()
 {
-	if (!HUD) return;
+	/*if (!HUD) return;
 
 	HUD->SetAP(PlayerRef ? PlayerRef->Stats.AP : 0.f);
 	HUD->PlayParrySuccessEffect();
-	if (TurnMenu) { TurnMenu->UpdateUltReady(IsUltReady(PlayerRef)); }
+
+	if (TurnMenu) { TurnMenu->UpdateUltReady(IsUltReady(PlayerRef)); }*/
+	return;
 }
 
 void ABattleManager::OnBossPatternPerfect()
 {
-	if (!HUD) return;
+	/*if (!HUD) return;
 
-	//HUD->ShowToast(TEXT("ALL BLOCK! ULT +10"), 0.9f);
+	if (PlayerRef) { PlayerRef->AddUltGauge(10.f); }
 	HUD->PlayParryPerfectEffect();
 
-	UpdateHUDSnapshot();
+	UpdateHUDSnapshot();*/
 }
 
 void ABattleManager::PlayPlayerHitReact()
@@ -544,4 +554,19 @@ void ABattleManager::PlayPlayerHitReact()
 void ABattleManager::PlayBossHitReact()
 {
 	if (BossRef) BossRef->PlayHitReact();
+}
+
+
+void ABattleManager::SpawnFloatingText(AActor* Target, float Amount)
+{
+	if (HUD) HUD->ShowDamagePopup(Target, Amount);
+}
+void ABattleManager::SpawnUltPopup(AActor* Target, float Amount)
+{
+	if (HUD) HUD->ShowUltGainPopup_HUD(Amount);
+}
+
+void ABattleManager::SpawnAPPopup(float Amount)
+{
+	if (HUD) HUD->ShowAPGainPopup(Amount);
 }

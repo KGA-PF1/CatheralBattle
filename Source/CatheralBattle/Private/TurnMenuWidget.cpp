@@ -53,7 +53,7 @@ void UTurnMenuWidget::UpdateUltReady(bool bReady)
 {
 	if (Ult_CantUse)
 	{
-		Ult_CantUse->SetOpacity(bReady ? 0.5f : 1.f);
+		Ult_CantUse->SetOpacity(bReady ? 0.f : 0.5f);
 	}
 	SetUltimateEnabled(bReady);
 

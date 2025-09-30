@@ -96,8 +96,18 @@ public:
 
 	UFUNCTION() void PlayPlayerHitReact();
 	UFUNCTION() void PlayBossHitReact();
+	UFUNCTION() void UpdateHUDSnapshot();
 
-	void UpdateHUDSnapshot();
+	UFUNCTION(BlueprintCallable) void PlayParrySuccessEffectImmediate();
+
+	UFUNCTION(BlueprintPure) UBattleHUDWidget* GetHUD() const { return HUD; } 
+	UFUNCTION(BlueprintPure) APlayerCharacter* GetPlayerRef() const { return PlayerRef; } 
+
+	// ★ AN에서 바로 호출할 수 있게 유틸 제공(실제 구현은 HUD로 위임)
+	UFUNCTION(BlueprintCallable) void SpawnFloatingText(AActor* Target, float Amount);
+	UFUNCTION(BlueprintCallable) void SpawnUltPopup(AActor* Target, float Amount);
+
+	UFUNCTION(BlueprintCallable) void SpawnAPPopup(float Amount);
 
 
 protected:
@@ -106,6 +116,7 @@ protected:
 private:
 	UPROPERTY() APlayerCharacter* PlayerRef = nullptr;
 	UPROPERTY() ABoss_Sevarog* BossRef = nullptr;
+
 
 	ETurn CurrentTurn = ETurn::Player;
 	bool  bRunning = false;

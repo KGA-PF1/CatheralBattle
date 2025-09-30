@@ -1,12 +1,15 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
 #include "Blueprint/UserWidget.h"
+#include "DamagePopupWidget.h"
 #include "BattleHUDWidget.generated.h"
 
 class UProgressBar; class UTextBlock; class UVerticalBox;
 class UHorizontalBox; class UImage;
 class UOverlay;
 class UWidgetAnimation;
+class UCanvasPanel;          
+class UCanvasPanelSlot;      
 
 UCLASS()
 class CATHERALBATTLE_API UBattleHUDWidget : public UUserWidget
@@ -29,6 +32,10 @@ public:
 	UPROPERTY(meta = (BindWidgetOptional)) UImage* AP4;
 	UPROPERTY(meta = (BindWidgetOptional)) UImage* AP5;
 
+	// ★ 화면에 임의 위젯을 올릴 캔버스(UMG에서 최상단에 CanvasPanel 하나 추가해 이름을 PopupCanvas로!)
+	UPROPERTY(meta = (BindWidgetOptional))  UCanvasPanel* PopupCanvas;
+
+
 	// 편집 가능 브러시(빈/채움)
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "AP")
 	TObjectPtr<UTexture2D> PipEmptyTexture;
@@ -50,6 +57,26 @@ public:
 	// 패링 결과 API
 	UFUNCTION(BlueprintCallable) void PlayParrySuccessEffect();
 	UFUNCTION(BlueprintCallable) void PlayParryPerfectEffect();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Popup")
+	TSubclassOf<class UDamagePopupWidget> PopupWidgetClass;
+
+	// 데미지/게이지 팝업(월드 위치 → 화면 좌표로 변환하여 PopupCanvas에 추가)
+	UFUNCTION(BlueprintCallable)
+	void ShowDamagePopup(AActor* Target, float Amount);
+
+	UFUNCTION(BlueprintCallable)
+	void ShowAPGainPopup(float Amount);
+
+	UFUNCTION(BlueprintCallable)
+	void ShowUltGainPopup_HUD(float Amount);
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	class UCanvasPanel* APPopupAnchor;
+
+	UPROPERTY(meta = (BindWidgetOptional))
+	class UCanvasPanel* UltPopupAnchor;
+
 
 protected:
 	virtual void NativeConstruct() override;

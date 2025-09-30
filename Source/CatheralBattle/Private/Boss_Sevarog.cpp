@@ -54,14 +54,13 @@ void ABoss_Sevarog::NotifyParrySuccess(APlayerCharacter* Target, int32 HitIndex)
 {
 	if (!Target) return;
 
-	//SucceededHits.Add(HitIndex);
+	SucceededHits.Add(HitIndex);
 
-	// ★ 모든 히트 성공 순간에 퍼펙트 신호
-	if (ExpectedHits > 0 && SucceededHits.Num() == ExpectedHits)
+	/*if (ExpectedHits > 0 && SucceededHits.Num() == ExpectedHits)
 	{
 		Target->AddUltGauge(10.f);
 		OnPatternPerfect.Broadcast();
-	}
+	}*/
 }
 
 void ABoss_Sevarog::ApplyDamageToBoss(float Damage)

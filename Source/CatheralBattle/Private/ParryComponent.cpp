@@ -119,7 +119,7 @@ void UParryComponent::HandleParrySuccess()
 	if (!PC) return;
 
 	// AP +1 (최대 7)
-	PC->Stats.AP = FMath::Clamp(PC->Stats.AP + 1, 0, 7);
+	//PC->Stats.AP = FMath::Clamp(PC->Stats.AP + 1, 0, 7);
 
 	// 보스 히트 기록
 	if (ArmedHitIndex >= 0)
@@ -133,7 +133,8 @@ void UParryComponent::HandleParrySuccess()
 			if (ABoss_Sevarog* Boss = Cast<ABoss_Sevarog>(
 				UGameplayStatics::GetActorOfClass(GetWorld(), ABoss_Sevarog::StaticClass())))
 			{
-				Boss->SucceededHits.Add(ArmedHitIndex);
+				//Boss->SucceededHits.Add(ArmedHitIndex);
+				Boss->NotifyParrySuccess(PC, ArmedHitIndex);
 			}
 		}
 	}

@@ -56,6 +56,7 @@ UAnimMontage* ATBPlayerCharacter::GetMontageByCommand(EPlayerCommand Cmd) const
 	case EPlayerCommand::Attack:  return M_Attack;
 	case EPlayerCommand::Skill1:  return M_Skill1;
 	case EPlayerCommand::Skill2:  return M_Skill2;
+	case EPlayerCommand::Ultimate: return M_Ultimate;
 	default: return nullptr;
 	}
 }
