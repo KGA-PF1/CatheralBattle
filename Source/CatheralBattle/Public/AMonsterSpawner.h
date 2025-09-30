@@ -52,4 +52,16 @@ public:
 
 	// 초기 몬스터 다수 생성 함수
 	void SpawnInitialMonsters();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
+	bool bAllowRespawn = true;
+
+	void SetMaxMonsterCount(int32 Count);
+
+	UFUNCTION(BlueprintCallable)
+	void SetSpawningEnabled(bool bEnabled) { bAllowRespawn = bEnabled; }
+
+	UFUNCTION(BlueprintCallable)
+	void CullAllMonsters(); // 기존 개체 정리용
+
 };
