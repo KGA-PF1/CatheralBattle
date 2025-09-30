@@ -62,23 +62,7 @@ APlayerCharacter::APlayerCharacter()
 	Weapon->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	Weapon->SetGenerateOverlapEvents(true);
 
-	//QSphere = CreateDefaultSubobject<USphereComponent>(TEXT("QSphere"));
-	//QSphere->SetupAttachment(GetRootComponent());      // 필요하면 소켓에 붙여도 됨
-	//QSphere->InitSphereRadius(300.f);
-	//QSphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	//QSphere->SetCollisionObjectType(ECC_WorldDynamic);
-	//QSphere->SetCollisionResponseToAllChannels(ECR_Ignore);
-	//QSphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-	//QSphere->SetGenerateOverlapEvents(true);
-
-	//ESphere = CreateDefaultSubobject<USphereComponent>(TEXT("ESphere"));
-	//ESphere->SetupAttachment(GetRootComponent());
-	//ESphere->InitSphereRadius(420.f);
-	//ESphere->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	//ESphere->SetCollisionObjectType(ECC_WorldDynamic);
-	//ESphere->SetCollisionResponseToAllChannels(ECR_Ignore);
-	//ESphere->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-	//ESphere->SetGenerateOverlapEvents(true);
+	Stats.Hp = Stats.MaxHp;
 }
 
 void APlayerCharacter::BeginPlay()
@@ -237,14 +221,121 @@ float APlayerCharacter::GetCooldownPercent(ESkillInput Input) const
 	return (Duration > 0.f) ? (Remaining / Duration) : 0.f;
 }
 
-void APlayerCharacter::TakeDamage(float Damage)
+float APlayerCharacter::TakeDamage(float DamageAmount,
+	FDamageEvent const& DamageEvent,
+	AController* EventInstigator,
+	AActor* DamageCauser)
 {
-	if (Damage <= 0 || IsDead()) return;
+	if (bInvincibleByHit || bInvincibleBySkill || DamageAmount <= 0) return 0.f;
+
+	float ActualDamage = Super::TakeDamage(DamageAmount, DamageEvent, EventInstigator, DamageCauser);
+	if (ActualDamage <= 0.f) return 0.f;
+
 	const int32 OldHp = Stats.Hp;
-	Stats.Hp = FMath::Clamp(Stats.Hp - Damage, 0, Stats.MaxHp);
+	Stats.Hp = FMath::Clamp(Stats.Hp - ActualDamage, 0, Stats.MaxHp);
+
 	if (Stats.Hp != OldHp)
 	{
 		OnHpChanged.Broadcast(Stats.Hp, Stats.MaxHp);
+
+		if (!IsDead() && HitMontage)
+		{
+			if (UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+			{
+				const bool bSkillPlaying = (ActiveSkillMontage && Anim->Montage_IsPlaying(ActiveSkillMontage));
+				const bool bInSkill = (CurrentSkill != ESkillInput::None && CurrentSkill != ESkillInput::Attack);
+
+				if (bSkillPlaying || bInSkill)
+					return ActualDamage;
+
+				Anim->StopAllMontages(0.1f);
+				AN_Sword_Off();
+				BP_ResetAttackState();
+
+				float Len = Anim->Montage_Play(HitMontage);
+				if (Len > 0.f)
+				{
+					bInvincibleByHit = true;
+					//SetCanBeDamaged(false);
+					bCanAttack = false;
+
+					//잠금 해제 이벤트 바인딩(끝, 중단)
+					FOnMontageBlendingOutStarted BlendOut;
+					BlendOut.BindUObject(this, &APlayerCharacter::OnMontageBlendOut);
+					Anim->Montage_SetBlendingOutDelegate(BlendOut, HitMontage);
+
+					FOnMontageEnded Ended;
+					Ended.BindUObject(this, &APlayerCharacter::OnMontageEnded);
+					Anim->Montage_SetEndDelegate(Ended, HitMontage);
+				}
+				else
+				{
+					bCanAttack = true;
+				}
+			}
+		}
+	}
+
+	if (IsDead())
+	{
+		OnDeath();
+	}
+
+	return ActualDamage;
+}
+
+void APlayerCharacter::TakeDamage(float Damage) 
+{ 
+	if (bInvincibleByHit) return;
+	if (Damage <= 0) return;
+
+	const int32 OldHp = Stats.Hp;
+	Stats.Hp = FMath::Clamp(Stats.Hp - Damage, 0, Stats.MaxHp);
+
+	if (Stats.Hp != OldHp)
+	{
+		OnHpChanged.Broadcast(Stats.Hp, Stats.MaxHp);
+
+		if (!IsDead() && HitMontage)
+		{
+			if (UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
+			{
+				const bool bSkillPlaying = (ActiveSkillMontage && Anim->Montage_IsPlaying(ActiveSkillMontage));
+				const bool bInSkill = (CurrentSkill != ESkillInput::None && CurrentSkill != ESkillInput::Attack);
+
+				if (bSkillPlaying || bInSkill)
+					return;
+
+				Anim->StopAllMontages(0.1f);
+				AN_Sword_Off();
+				BP_ResetAttackState();
+				float Len = Anim->Montage_Play(HitMontage);
+				if (Len > 0.f)
+				{
+					bInvincibleByHit = true;
+					//SetCanBeDamaged(false);
+					bCanAttack = false;
+
+					//잠금 해제 이벤트 바인딩(끝, 중단)
+					FOnMontageBlendingOutStarted BlendOut;
+					BlendOut.BindUObject(this, &APlayerCharacter::OnMontageBlendOut);
+					Anim->Montage_SetBlendingOutDelegate(BlendOut, HitMontage);
+
+					FOnMontageEnded Ended;
+					Ended.BindUObject(this, &APlayerCharacter::OnMontageEnded);
+					Anim->Montage_SetEndDelegate(Ended, HitMontage);
+				}
+				else
+				{
+					bCanAttack = true;
+				}
+			}
+		}
+	}
+
+	if (IsDead())
+	{
+		OnDeath();
 	}
 }
 
@@ -255,6 +346,62 @@ void APlayerCharacter::Respawn()
 		Stats.Hp = Stats.MaxHp;
 		OnHpChanged.Broadcast(Stats.Hp, Stats.MaxHp);
 	}
+}
+
+void APlayerCharacter::OnDeath()
+{
+	SetCanBeDamaged(false); //데미지 무시
+
+	if (DeathMontage)
+	{
+		if (UAnimInstance* Anim = GetMesh()->GetAnimInstance())
+		{
+			UE_LOG(LogTemp, Warning, TEXT("데스몽타주"));
+
+			//델리게이트를 변수로 만들어서
+			FOnMontageEnded EndDelegate;
+			EndDelegate.BindUObject(this, &APlayerCharacter::OnMontageEnded);
+
+			//lvalue로 전달함
+			Anim->Montage_SetEndDelegate(EndDelegate, DeathMontage);
+
+			//재생
+			Anim->Montage_Play(DeathMontage);
+		}
+	}
+	else
+	{
+		if (UAnimInstance* Anim = GetMesh()->GetAnimInstance())
+		{
+			Anim->StopAllMontages(0.2f);
+		}
+	}
+
+	//이동, 입력 정지
+	if (UCharacterMovementComponent* Move = GetCharacterMovement())
+	{
+		Move->StopMovementImmediately();
+		Move->DisableMovement();
+		Move->SetMovementMode(MOVE_None);
+		//Move->Velocity = FVector::ZeroVector;
+		//Move->bOrientRotationToMovement = false;
+	}
+
+	if (APlayerController* PC = Cast<APlayerController>(GetController()))
+	{
+		DisableInput(PC);
+	}
+
+
+	
+	//충돌 처리
+	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+
+	//컨트롤러 분리(시점 유지 필요없을 경우)
+	//DetachFromControllerPendingDestroy();
+
+	OnPlayerDeath.Broadcast(this);
+
 }
 
 void APlayerCharacter::AddUltGauge(float Amount)
@@ -324,7 +471,19 @@ bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput Inpu
 	//중복 시전 방지
 	if (UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
 	{
-		if (Anim->IsAnyMontagePlaying()) return false;
+		if (Anim->IsAnyMontagePlaying()) 
+		{
+			const bool bHitPlaying = (HitMontage && Anim->Montage_IsPlaying(HitMontage));
+			if (bHitPlaying)
+			{
+				Anim->Montage_Stop(0.1f, HitMontage);
+			}
+			else
+			{
+				UE_LOG(LogTemp, Warning, TEXT("Attack blocked: IsAnyMontagePlaying() = true"));
+				return false;
+			}
+		}
 	}
 
 	//간단 쿨타임 체크
@@ -424,6 +583,12 @@ void APlayerCharacter::PlaySkillMontage(const FSkillSpec& Spec)
 		float Len = Anim->Montage_Play(Spec.Montage);
 		if (Len > 0.f)
 		{
+			ActiveSkillMontage = Spec.Montage;
+			bCanAttack = false;
+
+			bInvincibleBySkill = true;
+			//SetCanBeDamaged(false);
+
 			//잠금 해제 이벤트 바인딩(끝, 중단)
 			FOnMontageBlendingOutStarted BlendOut;
 			BlendOut.BindUObject(this, &APlayerCharacter::OnMontageBlendOut);
@@ -433,10 +598,6 @@ void APlayerCharacter::PlaySkillMontage(const FSkillSpec& Spec)
 			Ended.BindUObject(this, &APlayerCharacter::OnMontageEnded);
 			Anim->Montage_SetEndDelegate(Ended, Spec.Montage);
 		}
-		//if (Len > 0.f && Spec.MontageSection != NAME_None)
-		//{
-		//	Anim->Montage_JumpToSection(Spec.MontageSection, Spec.Montage);
-		//}
 	}
 }
 
@@ -563,11 +724,43 @@ void APlayerCharacter::BroadcastCooldown(ESkillInput Input, float Remaining, flo
 
 void APlayerCharacter::OnMontageBlendOut(UAnimMontage* Montage, bool bInterrupted)
 {
+	if (Montage == ActiveSkillMontage)
+	{
+		ActiveSkillMontage = nullptr;
+		bInvincibleBySkill = false;
+		CurrentSkill = ESkillInput::None;
+	}
+	if (Montage == HitMontage)
+	{
+		bInvincibleByHit = false;
+	}
 	UnLockMoveInput();
 	bCanAttack = true;
 }
 void APlayerCharacter::OnMontageEnded(UAnimMontage* Montage, bool bInterrupted)
 {
+	if (Montage == DeathMontage)
+	{
+		//사망용처리
+		GetCharacterMovement()->DisableMovement();   // 다시 안 움직이게
+		bCanAttack = false;
+		GetMesh()->bPauseAnims = true;
+		return;
+	}
+
+	if (Montage == ActiveSkillMontage)
+	{
+		ActiveSkillMontage = nullptr;
+		bInvincibleBySkill = false;
+		CurrentSkill = ESkillInput::None;
+	}
+	// HitMontage 종료 디버그 로그
+	if (Montage == HitMontage)
+	{
+		bInvincibleByHit = false;
+		AN_Sword_Off();
+	}
+
 	UnLockMoveInput();
 	bCanAttack = true;
 }
