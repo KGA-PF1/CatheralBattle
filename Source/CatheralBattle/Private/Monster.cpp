@@ -29,9 +29,9 @@ void AMonster::BeginPlay()
 
 	CurrentHP = MaxHP;
 	OnHpMonster.Broadcast((float)CurrentHP, (float)MaxHP);
-	GetWorldTimerManager().SetTimer(AttackTimerHandle, 
+	/*GetWorldTimerManager().SetTimer(AttackTimerHandle, 
 		this, &AMonster::PerformAttack, 
-		0.1f, true, 0.1f);
+		0.1f, true, 0.1f);*/
 	if (GetMesh() && GetMesh()->GetAnimInstance())
 	{
 		GetMesh()->GetAnimInstance()->OnMontageEnded.AddDynamic(this, &AMonster::OnAttackMontageEnded);
