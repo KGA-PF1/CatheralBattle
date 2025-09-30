@@ -272,6 +272,9 @@ public:
 	//TODO: UltGauge가 MaxUltGauge이여야 궁극기 하도록
 	//TODO: UltGauge 0으로 만들기
 public:
+	UFUNCTION(BlueprintImplementableEvent, Category = "Combat|Notify")
+	void BP_ResetAttackState();
+
 	UPROPERTY(BlueprintReadWrite, Category = "State")
 	bool bCanAttack = true;
 	UPROPERTY(BlueprintReadWrite, Category = "State")
@@ -333,17 +336,21 @@ protected:
 
 private: //스킬 Q 입력막기
 	FTimerHandle MovementLockStartHandle;
-	UPROPERTY() UAnimMontage* ActiveSkillMontage = nullptr;
+	UPROPERTY() 
+	UAnimMontage* ActiveSkillMontage = nullptr;
 	bool bMoveInputLocked = false;
+	bool bInvincibleByHit = false;
+	bool bInvincibleBySkill = false;
 
 	ESkillInput CurrentSkill = ESkillInput::None;
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable)
 	void OnMontageBlendOut(UAnimMontage* Montage, bool bInterrupted);
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable)
 	void OnMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 	void LockMoveInput();
 	void UnLockMoveInput();
+
 #pragma endregion
 
 
