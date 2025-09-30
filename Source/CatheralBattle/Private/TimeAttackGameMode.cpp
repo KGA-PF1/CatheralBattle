@@ -31,7 +31,7 @@ void ATimeAttackGameMode::Tick(float DeltaSeconds)
 		{
 			TimeRemaining = -1.f;
 			UE_LOG(LogTemp, Warning, TEXT("The time has come"));
-			// 때가 되었다 .. 라는 의미의 문구 썼어요
+			// 때가 되었다 .. 라는 의미의 문구 썼어요 로그가 화면에 뜨는건 아님 . . damm..
 		}
 	}
 }
