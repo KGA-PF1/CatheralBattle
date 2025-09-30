@@ -1,4 +1,4 @@
-// Fill out your copyright notice in the Description page of Project Settings.
+// TimeAttackGameMode.h
 
 #pragma once
 
@@ -25,6 +25,13 @@ private:
 
 	// 남은 시간
 	float TimeRemaining;
+
+	// 딜레이 후 카운트다운 시작
+	void StartTimer();
+	FTimerHandle StartDelayHandle;
+
+	// 실행 여부
+	bool bIsTimerActive = false;
 
 public:
 	// 남은 시간 가져오기 (UI에서 접근 가능)
