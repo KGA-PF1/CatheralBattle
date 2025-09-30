@@ -4,6 +4,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Animation/AnimMontage.h"
 #include "Monster.generated.h"
 
 //몬스터 사망시 브로드캐스트 이벤트 (스포너/게임모드에서 사용)
@@ -43,6 +44,9 @@ public:
         UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
         float Speed = 300.f;//속도
 
+        UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "State")
+        bool bIsDead = false;
+
         UFUNCTION(BlueprintCallable, Category = "Stats")
         float GetHp() { return CurrentHP; }
         UFUNCTION(BlueprintCallable, Category = "Stats")
@@ -68,14 +72,10 @@ public:
 
         void DestroyMonster(); // 몬스터 제거 함수
 
-        void StartAttack();
-
-        void StopAttack();
 
         FTimerHandle DeathTimerHandle;
 
         FTimerHandle AttackTimerHandle;
-        bool bIsAttacking = false;
         // ==== 이벤트 ====
         // 몬스터가 죽을 때 알림
         UPROPERTY(BlueprintAssignable, Category = "Monster")
@@ -87,6 +87,28 @@ public:
 		UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
 		class UAnimMontage* HitMontage;
 
-    protected:	
-        void PlayAttackAnimation();
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Animation")
+        UAnimMontage* DeathMontage;
+
+
+        // 공격 몽타주 애셋
+        UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Attack")
+        UAnimMontage* AttackMontage;
+
+        // 공격 상태 플래그
+        UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Attack")
+         bool bIsAttacking;
+
+        // 공격 시작
+        UFUNCTION(BlueprintCallable, Category = "Attack")
+        void StartAttack();
+
+        // 몽타주 종료 콜백
+        UFUNCTION()
+        void OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted);
+
+        // 블루프린트용 공격 종료 이벤트 (옵션)
+        UFUNCTION(BlueprintImplementableEvent, Category = "Attack")
+        void OnAttackEnded();
+
 };
