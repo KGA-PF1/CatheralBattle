@@ -41,6 +41,7 @@ void UAN_PlayerHit::Notify(USkeletalMeshComponent* MeshComp,
         if (SkillInput == ESkillInput::Skill_Q) UltIncrease = 5.f;
         else if (SkillInput == ESkillInput::Skill_E) UltIncrease = 7.f;
         else if (SkillInput == ESkillInput::Attack) UltIncrease = 3.f;
+		Player->AddUltGauge(UltIncrease); // 궁극기 게이지 증가
 
         if (BM)
         {
