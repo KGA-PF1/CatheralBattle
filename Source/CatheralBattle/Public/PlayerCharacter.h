@@ -31,6 +31,7 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnHpChanged, float, NewHp, float, 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOnUltGaugeChanged, float, NewGauge, float, MaxGauge);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnCooldownUpdated, ESkillInput, Input, float, Remaining, float, Duration);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnCooldownEnded, ESkillInput, input);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnPlayerDeath, class APlayerCharacter*, Player);
 
 USTRUCT(BlueprintType)
 struct FPlayerStats //플레이어 스탯 구조체
@@ -115,14 +116,8 @@ public:
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 
-#pragma region Camera and Input
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
-	USpringArmComponent* CameraBoom;
-
-	/** Follow camera */
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
-	UCameraComponent* FollowCamera;
-
+#pragma region Input
+public:
 	/** MappingContext */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputMappingContext* DefaultMappingContext;
@@ -156,25 +151,31 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = Input, meta = (AllowPrivateAccess = "true"))
 	UInputAction* ShieldAction;
-#pragma endregion
-protected:
 
+protected:
 	/** Called for movement input */
 	void Move(const FInputActionValue& Value);
 
 	/** Called for looking input */
 	void Look(const FInputActionValue& Value);
+#pragma endregion
 
+#pragma region Camera
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+	USpringArmComponent* CameraBoom;
 
+	/** Follow camera */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
+	UCameraComponent* FollowCamera;
 public:
 	/** Returns CameraBoom subobject **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }
 	/** Returns FollowCamera subobject **/
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
+#pragma endregion
 
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	FPlayerStats Stats;
-
+#pragma region Sprint
+public:
 	//Sprint
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats|Sprint")
 	float SprintMultiplier = 1.5f;
@@ -187,13 +188,11 @@ public:
 	void StopSprint();
 	UFUNCTION(BlueprintCallable)
 	void SyncMovementSpeed();
-
-
-
+#pragma endregion
 
 	//Event 변수들
 #pragma region Event
-	//Hp - OnDeath?필요
+public:
 	UPROPERTY(BlueprintAssignable, Category = "Event")
 	FOnHpChanged OnHpChanged;
 	UPROPERTY(BlueprintAssignable, Category = "Event")
@@ -202,10 +201,13 @@ public:
 	FOnCooldownUpdated OnCooldownUpdated;
 	UPROPERTY(BlueprintAssignable, Category = "Event|Cooldown")
 	FOnCooldownEnded OnCooldownEnded;
+	UPROPERTY(BlueprintAssignable, Category = "Event")
+	FOnPlayerDeath OnPlayerDeath;
 #pragma endregion
 
 	//UI를 위한 Getter
 #pragma region UI Binding Function
+public:
 	//HP
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	float GetHp() { return Stats.Hp; }
@@ -230,14 +232,31 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Skill|Cooldown")
 	float GetCooldownPercent(ESkillInput Input) const;
 #pragma endregion
+
 public:
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
+	FPlayerStats Stats;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Combat|Montage")
+	UAnimMontage* HitMontage;
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category="Combat|Montage")
+	UAnimMontage* DeathMontage;
+
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	bool IsDead() const { return Stats.Hp <= 0; }
-	//TODO: ApplyDamage 필요하면 변경
+
 	UFUNCTION(BlueprintCallable, Category = "Stats")
+	virtual float TakeDamage(float DamageAmount,
+		FDamageEvent const& DamageEvent,
+		AController* EventInstigator,
+		AActor* DamageCauser) override;
+
 	void TakeDamage(float Damage);
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	void Respawn();
+
+	UFUNCTION(BlueprintCallable, Category = "Stats")
+	virtual void OnDeath();
 	//UltGauge
 	//TODO: 몬스터 죽을 때 AddUltGauge하게끔
 	UFUNCTION(BlueprintCallable, Category = "Stats")
@@ -253,8 +272,13 @@ public:
 	//TODO: UltGauge가 MaxUltGauge이여야 궁극기 하도록
 	//TODO: UltGauge 0으로 만들기
 public:
+	UFUNCTION(BlueprintImplementableEvent, Category = "Combat|Notify")
+	void BP_ResetAttackState();
+
 	UPROPERTY(BlueprintReadWrite, Category = "State")
 	bool bCanAttack = true;
+	UPROPERTY(BlueprintReadWrite, Category = "State")
+	bool bIsAttackingTest = false;
 
 	UFUNCTION(BlueprintCallable, Category = "Skill")
 	bool TryUseSkill(ESkillInput InputKind);
@@ -312,17 +336,21 @@ protected:
 
 private: //스킬 Q 입력막기
 	FTimerHandle MovementLockStartHandle;
-	UPROPERTY() UAnimMontage* ActiveSkillMontage = nullptr;
+	UPROPERTY() 
+	UAnimMontage* ActiveSkillMontage = nullptr;
 	bool bMoveInputLocked = false;
+	bool bInvincibleByHit = false;
+	bool bInvincibleBySkill = false;
 
 	ESkillInput CurrentSkill = ESkillInput::None;
 
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable)
 	void OnMontageBlendOut(UAnimMontage* Montage, bool bInterrupted);
-	UFUNCTION()
+	UFUNCTION(BlueprintCallable)
 	void OnMontageEnded(UAnimMontage* Montage, bool bInterrupted);
 	void LockMoveInput();
 	void UnLockMoveInput();
+
 #pragma endregion
 
 
@@ -338,7 +366,7 @@ public:
 	float QSkillRange = 200.f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
 	float ESkillRange = 600.f;
-	
+
 
 	// 공격 데미지
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Combat")
