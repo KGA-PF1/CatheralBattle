@@ -112,14 +112,6 @@ protected:
 	virtual void BeginPlay() override;
 
 public:
-
-	//턴제 캐릭터에 스텟 동기화용
-	UFUNCTION(BlueprintCallable, Category = "Player|Sync")
-	void MirrorAllTo(class APlayerCharacter* Dest, bool bCopyCooldowns = true) const;
-
-	UFUNCTION(BlueprintCallable)
-	float GetSkillDamage(ESkillInput Input) const;
-
 	virtual void Tick(float DeltaTime) override;
 
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
@@ -198,18 +190,9 @@ public:
 	void SyncMovementSpeed();
 #pragma endregion
 
-<<<<<<< HEAD
-
-
-
-	//Event 변수들
-#pragma region Event
-	//Hp - OnDeath?필요
-=======
 	//Event 변수들
 #pragma region Event
 public:
->>>>>>> origin/develop
 	UPROPERTY(BlueprintAssignable, Category = "Event")
 	FOnHpChanged OnHpChanged;
 	UPROPERTY(BlueprintAssignable, Category = "Event")
@@ -232,11 +215,7 @@ public:
 	float GetMaxHp() { return Stats.MaxHp; }
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	float GetHpPercent() { return Stats.MaxHp > 0 ? Stats.Hp / Stats.MaxHp : 0.f; }
-<<<<<<< HEAD
-	
-=======
 
->>>>>>> origin/develop
 	//궁극기
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	float GetUltGauge() { return Stats.UltGauge; }
@@ -246,11 +225,7 @@ public:
 	float GetUltGaugePercent() { return Stats.MaxUltGauge > 0 ? Stats.UltGauge / Stats.MaxUltGauge : 0.f; }
 
 	//쿨타임
-<<<<<<< HEAD
-	UFUNCTION(BlueprintPure, Category="Skill|Cooldown")
-=======
 	UFUNCTION(BlueprintPure, Category = "Skill|Cooldown")
->>>>>>> origin/develop
 	float GetCooldownRemaining(ESkillInput Input) const;
 	UFUNCTION(BlueprintPure, Category = "Skill|Cooldown")
 	float GetCooldownDuration(ESkillInput Input) const;
@@ -269,11 +244,7 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	bool IsDead() const { return Stats.Hp <= 0; }
-<<<<<<< HEAD
-	//TODO: ApplyDamage 필요하면 변경
-=======
 
->>>>>>> origin/develop
 	UFUNCTION(BlueprintCallable, Category = "Stats")
 	virtual float TakeDamage(float DamageAmount,
 		FDamageEvent const& DamageEvent,
@@ -359,9 +330,6 @@ protected:
 	//몽타주 재생 유틸
 	void PlaySkillMontage(const FSkillSpec& Spec);
 
-<<<<<<< HEAD
-	//Overlap용
-=======
 	//쿨타임
 	TMap<ESkillInput, float> CooldownTimers;
 	void BroadcastCooldown(ESkillInput Input, float Remaining, float Duration);
@@ -413,7 +381,6 @@ public:
 	float CalcAttackRange() const;
 
 	//Attack, SkillQ, SkillE 오버랩
->>>>>>> origin/develop
 	UFUNCTION()
 	void OnWeaponBeginOverlap(
 		UPrimitiveComponent* OverlappedComp,
@@ -423,20 +390,9 @@ public:
 		bool bFromSweep,
 		const FHitResult& Sweep);
 
-<<<<<<< HEAD
-	//쿨타임
-	TMap<ESkillInput, float> CooldownTimers;
-	void BroadcastCooldown(ESkillInput Input, float Remaining, float Duration);
-
-private: //스킬 Q 입력막기
-	FTimerHandle MovementLockStartHandle;
-	UPROPERTY() UAnimMontage* ActiveSkillMontage = nullptr;
-	bool bMoveInputLocked = false;
-=======
 	UFUNCTION(BlueprintCallable, Category = "Combat")
 	void ExecuteAOEAttack();
 
->>>>>>> origin/develop
 
 #pragma endregion
 };

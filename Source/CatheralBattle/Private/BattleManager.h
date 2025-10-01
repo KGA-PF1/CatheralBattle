@@ -1,19 +1,12 @@
 ﻿#pragma once
 #include "CoreMinimal.h"
-#include "TurnMenuWidget.h"
-#include "BattleHUDWidget.h"
 #include "GameFramework/Actor.h"
-#include "ATBPlayerCharacter.h"
 #include "BattleManager.generated.h"
 
 class APlayerCharacter;
 class ABoss_Sevarog;
 class AParryInputProxy;
 class UAnimMontage;
-class UTurnMenuWidget;
-class UBattleHUDWidget;
-
-enum class EPlayerCommand : uint8;
 
 UENUM(BlueprintType)
 enum class ETurn : uint8 { Player, Boss };
@@ -26,12 +19,6 @@ class CATHERALBATTLE_API ABattleManager : public AActor
 
 public:
 	ABattleManager();
-
-
-	UPROPERTY() ATBPlayerCharacter* TBPlayer = nullptr;
-
-	UPROPERTY(EditAnywhere, Category = "Classes")
-	TSubclassOf<ATBPlayerCharacter> TBPlayerClass;
 
 	/** 보스 패턴 몽타주 리스트(랜덤 선택, 직전 반복 금지 옵션) */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Battle|Setup")
@@ -59,64 +46,12 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Battle") ETurn GetCurrentTurn() const { return CurrentTurn; }
 
-	// UI 클래스(UMG에서 만들고 지정)
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Battle|UI")
-	TSubclassOf<UTurnMenuWidget> TurnMenuClass;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Battle|UI")
-	TSubclassOf<UBattleHUDWidget> HUDClass;
-
-	// 플레이어 몽타주(기본 공격/스킬/궁극기)
-	UPROPERTY(EditAnywhere, Category = "Battle|PlayerMontage") UAnimMontage* PlayerAttackMontage = nullptr;
-	UPROPERTY(EditAnywhere, Category = "Battle|PlayerMontage") UAnimMontage* PlayerSkill1Montage = nullptr;
-	UPROPERTY(EditAnywhere, Category = "Battle|PlayerMontage") UAnimMontage* PlayerSkill2Montage = nullptr;
-	UPROPERTY(EditAnywhere, Category = "Battle|PlayerMontage") UAnimMontage* PlayerUltMontage = nullptr;
-
-	bool bWaitingForPlayerMontage = false;
-
-	UFUNCTION() void OnPlayerMontageEnded(UAnimMontage* Montage, bool bInterrupted);
-	void PlayPlayerMontage(UAnimMontage* MontageToPlay);
-
-	// Spawn 앵커(레벨에 놓은 TargetPoint나 빈 Actor를 드롭)
-	UPROPERTY(EditAnywhere, Category = "TB|Spawn")
-	AActor* TBPlayerSpawnAnchor = nullptr;
-
-	UPROPERTY(EditAnywhere, Category = "TB|Spawn")
-	AActor* BossSpawnAnchor = nullptr;
-
-	// 필요시 보스 새로 스폰할 클래스(없으면 기존 보스를 자리만 이동)
-	UPROPERTY(EditAnywhere, Category = "TB|Spawn")
-	TSubclassOf<ABoss_Sevarog> BossClass;
-
-	// 기존 보스를 앵커 위치로 ‘이동’시킬지 여부
-	UPROPERTY(EditAnywhere, Category = "TB|Spawn")
-	bool bRelocateExistingBoss = true;
-
-	EPlayerCommand PendingCommand;
-
-	UFUNCTION() void PlayPlayerHitReact();
-	UFUNCTION() void PlayBossHitReact();
-	UFUNCTION() void UpdateHUDSnapshot();
-
-	UFUNCTION(BlueprintCallable) void PlayParrySuccessEffectImmediate();
-
-	UFUNCTION(BlueprintPure) UBattleHUDWidget* GetHUD() const { return HUD; } 
-	UFUNCTION(BlueprintPure) APlayerCharacter* GetPlayerRef() const { return PlayerRef; } 
-
-	// ★ AN에서 바로 호출할 수 있게 유틸 제공(실제 구현은 HUD로 위임)
-	UFUNCTION(BlueprintCallable) void SpawnFloatingText(AActor* Target, float Amount);
-	UFUNCTION(BlueprintCallable) void SpawnUltPopup(AActor* Target, float Amount);
-
-	UFUNCTION(BlueprintCallable) void SpawnAPPopup(float Amount);
-
-
 protected:
 	virtual void BeginPlay() override;
 
 private:
 	UPROPERTY() APlayerCharacter* PlayerRef = nullptr;
 	UPROPERTY() ABoss_Sevarog* BossRef = nullptr;
-
 
 	ETurn CurrentTurn = ETurn::Player;
 	bool  bRunning = false;
@@ -135,26 +70,5 @@ private:
 	void  CheckEnd();
 
 	UFUNCTION() void OnPlayerHpChanged(float NewHp, float MaxHp);
-	UFUNCTION() void OnPlayerUltChanged(float Cur, float Max);
 	UFUNCTION() void OnBossPatternFinished();
-
-	// UI
-	UPROPERTY() UTurnMenuWidget* TurnMenu = nullptr;
-	UPROPERTY() UBattleHUDWidget* HUD = nullptr;
-
-	void ShowPlayerUI(bool bShowMenu);
-
-	void BindRuntimeSignals();
-
-	UFUNCTION() void HandleMenuConfirm(EPlayerCommand Command);
-	UFUNCTION() void OnParryToast();
-	UFUNCTION() void OnBossPatternPerfect();
-	UFUNCTION() void OnBossDealDmg(float Amt);
-
-	// 플레이어 교체
-	UPROPERTY() APawn* OriginalPawn = nullptr;
-	FVector OriginalPawnLoc;
-	FRotator OriginalPawnRot;
-
-	void SetOriginalPawnVisible(bool bVisible);
 };

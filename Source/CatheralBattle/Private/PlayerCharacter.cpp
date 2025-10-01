@@ -53,15 +53,6 @@ APlayerCharacter::APlayerCharacter()
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 
 	//무기 히트박스
-<<<<<<< HEAD
-	Sword = CreateDefaultSubobject<UBoxComponent>(TEXT("Sword"));
-	Sword->SetupAttachment(GetMesh());
-	Sword->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	Sword->SetGenerateOverlapEvents(true);
-	Sword->SetCollisionObjectType(ECC_WorldDynamic);
-	Sword->SetCollisionResponseToAllChannels(ECR_Ignore);
-	Sword->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-=======
 	Weapon = CreateDefaultSubobject<UBoxComponent>(TEXT("Sword"));
 	Weapon->SetupAttachment(GetMesh());
 	Weapon->InitBoxExtent(FVector(10, 10, 80));
@@ -72,7 +63,6 @@ APlayerCharacter::APlayerCharacter()
 	Weapon->SetGenerateOverlapEvents(true);
 
 	Stats.Hp = Stats.MaxHp;
->>>>>>> origin/develop
 }
 
 void APlayerCharacter::BeginPlay()
@@ -93,11 +83,7 @@ void APlayerCharacter::BeginPlay()
 	}
 
 	//무기 히트박스
-<<<<<<< HEAD
-	if (Sword && GetMesh())
-=======
 	if (Weapon && GetMesh())
->>>>>>> origin/develop
 	{
 		Weapon->AttachToComponent(
 			GetMesh(),
@@ -514,11 +500,7 @@ bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput Inpu
 	}
 
 	//히트박스 모양 업데이트
-<<<<<<< HEAD
-	if (Sword && Spec.bUseWeaponHitBox)
-=======
 	if (Weapon && Spec.bUseWeaponHitBox)
->>>>>>> origin/develop
 	{
 		Weapon->SetBoxExtent(Spec.BoxExtent, true);
 		Weapon->SetRelativeLocation(Spec.BoxRelLocation);
@@ -601,15 +583,12 @@ void APlayerCharacter::PlaySkillMontage(const FSkillSpec& Spec)
 		float Len = Anim->Montage_Play(Spec.Montage);
 		if (Len > 0.f)
 		{
-<<<<<<< HEAD
-=======
 			ActiveSkillMontage = Spec.Montage;
 			bCanAttack = false;
 
 			bInvincibleBySkill = true;
 			//SetCanBeDamaged(false);
 
->>>>>>> origin/develop
 			//잠금 해제 이벤트 바인딩(끝, 중단)
 			FOnMontageBlendingOutStarted BlendOut;
 			BlendOut.BindUObject(this, &APlayerCharacter::OnMontageBlendOut);
@@ -808,37 +787,6 @@ void APlayerCharacter::UnLockMoveInput()
 	bMoveInputLocked = false;
 }
 
-<<<<<<< HEAD
-void APlayerCharacter::MirrorAllTo(APlayerCharacter* Dest, bool bCopyCooldowns) const
-{
-	if (!Dest) return;
-
-	// 스탯 통째 복사
-	Dest->Stats = this->Stats; // Hp/MaxHp/AtkPoint/Speed/UltGauge/MaxUltGauge/AP 전부 포함
-
-	// 런타임 상태
-	Dest->SprintMultiplier = this->SprintMultiplier;
-	Dest->bIsSprinting = this->bIsSprinting;
-	Dest->bCanAttack = this->bCanAttack;
-
-	// 이동속도 반영
-	Dest->SyncMovementSpeed();
-
-	// UI 이벤트 재브로드캐스트(즉시 HUD 반영)
-	Dest->OnHpChanged.Broadcast(Dest->Stats.Hp, Dest->Stats.MaxHp);
-	Dest->OnUltGaugeChanged.Broadcast(Dest->Stats.UltGauge, Dest->Stats.MaxUltGauge);
-}
-
-
-float APlayerCharacter::GetSkillDamage(ESkillInput Input) const
-{
-	if (const FSkillSpec* Found = SkillTable.Find(Input))
-	{
-		return Stats.AtkPoint * Found->DamageMultiplier;
-	}
-	return 0.f;
-}
-=======
 float APlayerCharacter::CalcAttackDamage() const
 {
 	//실제 데미지 계산
@@ -858,4 +806,3 @@ float APlayerCharacter::CalcAttackRange() const
 	}
 }
 
->>>>>>> origin/develop

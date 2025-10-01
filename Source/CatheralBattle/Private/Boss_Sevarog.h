@@ -8,12 +8,7 @@ class APlayerCharacter;
 
 /** 델리게이트 */
 DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnPatternFinished);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FOnBossDealtDamage, float, Amount);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(FOnBossArmParry, APlayerCharacter*, Target, int32, HitIndex, float, WindowSec);
-
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnBossPatternPerfect);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE(FOnBossHpChanged);
-
 
 
 /** 보스(Notify 구동형) */
@@ -24,9 +19,6 @@ class CATHERALBATTLE_API ABoss_Sevarog : public ACharacter
 
 public:
 	ABoss_Sevarog();
-
-	UPROPERTY(BlueprintAssignable) FOnBossPatternPerfect OnPatternPerfect;
-	UPROPERTY(BlueprintAssignable) FOnBossHpChanged     OnBossHpChanged;
 
 	/** 스탯 */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Boss|Stat") float MaxHp = 200.f;
@@ -42,24 +34,17 @@ public:
 	void PlayPatternMontage(UAnimMontage* Montage, APlayerCharacter* Target);
 
 	/** 패턴 라이프사이클/히트 처리(Notify에서 호출) */
-	UFUNCTION(BlueprintCallable, Category = "Boss|Pattern") void NotifyPatternBegin(APlayerCharacter* Target, int32 InHits);
+	UFUNCTION(BlueprintCallable, Category = "Boss|Pattern") void NotifyPatternBegin(APlayerCharacter* Target, int32 InExpectedHits);
 	UFUNCTION(BlueprintCallable, Category = "Boss|Pattern") void NotifyPatternEnd();
 	UFUNCTION(BlueprintCallable, Category = "Boss|Pattern") void ApplyHitIfNotParried(APlayerCharacter* Target, int32 HitIndex, float DamageMultiplier);
 	UFUNCTION(BlueprintCallable, Category = "Boss|Pattern") void NotifyParrySuccess(APlayerCharacter* Target, int32 HitIndex);
 
 	/** 보스 피해(플레이어 턴 등) */
 	UFUNCTION(BlueprintCallable, Category = "Boss|Stat") void ApplyDamageToBoss(float Damage);
-	UFUNCTION(BlueprintCallable) void PlayHitReact();
-	UPROPERTY(BlueprintAssignable, Category = "Boss|Event") FOnBossDealtDamage OnBossDealtDamage;
-	
-	UPROPERTY(EditAnywhere) UAnimMontage* HitReactMontage;
 
-	TSet<int32> SucceededHits;
-	int32 ExpectedHits = 0;
-
+private:
 	/** 이번 패턴 대상/성공기록 */
 	UPROPERTY() TWeakObjectPtr<APlayerCharacter> CurrentTarget;
-private:
-
-
+	TSet<int32> SucceededHits;
+	int32 ExpectedHits = 0;
 };
