@@ -26,7 +26,9 @@ void UParryComponent::TryBindBoss()
 	{
 		if (ABoss_Sevarog* B = Cast<ABoss_Sevarog>(A))
 		{
-			B->OnBossArmParry.AddDynamic(this, &UParryComponent::OnBossArm);
+			B->OnBossArmParry.AddUniqueDynamic(this, &UParryComponent::OnBossArm);
+
+
 		}
 	}
 	if (Found.Num() > 0)
@@ -66,6 +68,7 @@ void UParryComponent::OnBossArm(APlayerCharacter* Target, int32 HitIndex, float 
 	}
 	ArmedBoss = Closest;
 
+
 	// 버퍼: 창 직전 입력 있었다면 즉시 성공
 	const double Now = FPlatformTime::Seconds();
 	if (!bLocked && (Now - LastPressTime) <= (double)BufferBeforeOpen)
@@ -90,39 +93,70 @@ void UParryComponent::ExpireArm()
 
 void UParryComponent::OnParryPressed()
 {
+	// ★ 0) 쿨다운 중이면 즉시 무시 (모션도 재생 안 함)
+	if (bParryOnCooldown) return;
+
+	// ★ 1) 이번 입력으로 쿨다운 시작
+	bParryOnCooldown = true;
+	GetWorld()->GetTimerManager().ClearTimer(TimerParryCooldown);
+	GetWorld()->GetTimerManager().SetTimer(
+		TimerParryCooldown,
+		this, &UParryComponent::ResetParryCooldown,
+		ParryCooldown, false);
+
 	const double Now = FPlatformTime::Seconds();
 	LastPressTime = Now;
 
-	// 모션은 항상 재생(성공/실패 공통 피드백)
+	// 2) 모션 재생(성공/실패 공통 피드백)
 	PlayParryMontage();
 
-	// 리커버리 중이면 판정 불가
+	// 3) 리커버리 중이면 판정 불가
 	if (bLocked) return;
 
-	// 창 안이면 성공
+	// 4) 창 안이면 성공
 	if (bArmed && Now <= WindowEndTime)
 	{
 		HandleParrySuccess();
 		return;
 	}
 
-	// 실패 → 리커버리 진입
+	// 5) 실패 → 리커버리 진입
 	BeginRecovery();
 }
-
 void UParryComponent::HandleParrySuccess()
 {
-	APlayerCharacter* OwnerPC = GetOwnerPlayer();
-	if (!OwnerPC || !ArmedBoss.IsValid() || ArmedHitIndex < 0) { ExpireArm(); return; }
+	APlayerCharacter* PC = GetOwnerPlayer();
+	if (!PC) return;
 
-	// AP +1 (최대 6)
-	OwnerPC->Stats.AP = FMath::Clamp(OwnerPC->Stats.AP + 1.f, 0.f, 6.f);
+	// AP +1 (최대 7)
+	//PC->Stats.AP = FMath::Clamp(PC->Stats.AP + 1, 0, 7);
 
-	// 보스에 히트 성공 보고(모든 히트 성공 시 Ult+10은 보스가 처리)
-	ArmedBoss->NotifyParrySuccess(OwnerPC, ArmedHitIndex);
+	// 보스 히트 기록
+	if (ArmedHitIndex >= 0)
+	{
+		if (ArmedBoss.IsValid())
+		{
+			ArmedBoss->SucceededHits.Add(ArmedHitIndex);
+		}
+		else
+		{
+			if (ABoss_Sevarog* Boss = Cast<ABoss_Sevarog>(
+				UGameplayStatics::GetActorOfClass(GetWorld(), ABoss_Sevarog::StaticClass())))
+			{
+				//Boss->SucceededHits.Add(ArmedHitIndex);
+				Boss->NotifyParrySuccess(PC, ArmedHitIndex);
+			}
+		}
+	}
 
-	ExpireArm();
+	// HUD 반영
+	OnParrySuccess.Broadcast();
+
+	// ★ 창 즉시 종료 대신, 아주 짧은 딜레이 후 닫기
+	GetWorld()->GetTimerManager().ClearTimer(TimerExpire);
+	GetWorld()->GetTimerManager().SetTimer(TimerExpire, this, &UParryComponent::ExpireArm, 0.05f, false);
 }
+
 
 void UParryComponent::BeginRecovery()
 {
@@ -146,4 +180,9 @@ void UParryComponent::PlayParryMontage() const
 			Anim->Montage_Play(ParryMontage, 1.0f);
 		}
 	}
+}
+
+void UParryComponent::ResetParryCooldown()
+{
+	bParryOnCooldown = false;
 }
