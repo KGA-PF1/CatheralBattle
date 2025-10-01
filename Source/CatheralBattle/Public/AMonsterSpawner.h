@@ -4,6 +4,7 @@
 #include "Monster.h"
 #include "AMonsterSpawner.generated.h"
 
+
 UCLASS()
 class CATHERALBATTLE_API AAMonsterSpawner : public AActor
 {
@@ -29,6 +30,9 @@ public:
 	UPROPERTY(EditAnywhere, Category = "Spawn")
 	int32 MaxMonsterCount;
 
+	UFUNCTION()
+	void OnMonsterDeath(AMonster* DeadMonster);
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -42,10 +46,22 @@ private:
 	FVector GetRandomSpawnLocation() const;
 
 	// 몬스터 사망 시 호출
-	void OnMonsterDeath(AMonster* DeadMonster);
+
 
 public:
 
 	// 초기 몬스터 다수 생성 함수
 	void SpawnInitialMonsters();
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Spawn")
+	bool bAllowRespawn = true;
+
+	void SetMaxMonsterCount(int32 Count);
+
+	UFUNCTION(BlueprintCallable)
+	void SetSpawningEnabled(bool bEnabled) { bAllowRespawn = bEnabled; }
+
+	UFUNCTION(BlueprintCallable)
+	void CullAllMonsters(); // 기존 개체 정리용
+
 };

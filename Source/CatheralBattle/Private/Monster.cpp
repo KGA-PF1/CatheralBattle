@@ -3,10 +3,14 @@
 #include "Monster.h"
 #include "TimerManager.h"
 #include "Engine/World.h"
-#include "GameFramework/Character.h"
-#include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "Engine/DamageEvents.h"
+#include "AIController.h"
+#include "BrainComponent.h"
+#include "BehaviorTree/BlackboardComponent.h" // 추가
+#include "GameFramework/CharacterMovementComponent.h" // 추가
 #include "PlayerCharacter.h"
+
 
 // Sets default values
 AMonster::AMonster()
@@ -14,6 +18,7 @@ AMonster::AMonster()
 	// Set this character to call Tick() every frame.  You can turn this off to improve performance if you don't need it.
 	PrimaryActorTick.bCanEverTick = true; // Tick 활성화
 	bCanAttack = true; // 초기 공격 가능 상태
+	bIsAttacking = false;
 
 }
 
@@ -23,36 +28,103 @@ void AMonster::BeginPlay()
 	Super::BeginPlay();
 
 	CurrentHP = MaxHP;
-	OnHpMonster.Broadcast(CurrentHP, MaxHP);
-	
+	OnHpMonster.Broadcast((float)CurrentHP, (float)MaxHP);
+	/*GetWorldTimerManager().SetTimer(AttackTimerHandle, 
+		this, &AMonster::PerformAttack, 
+		0.1f, true, 0.1f);*/
+	if (GetMesh() && GetMesh()->GetAnimInstance())
+	{
+		GetMesh()->GetAnimInstance()->OnMontageEnded.AddDynamic(this, &AMonster::OnAttackMontageEnded);
+		GetMesh()->SetCollisionResponseToChannel(ECollisionChannel::ECC_Camera, ECollisionResponse::ECR_Ignore);
+	}
 }
 
 void AMonster::ResetAttackCooldown()
 {
+
 	bCanAttack = true;
 }
 
-
-void AMonster::TakeDamageCustom(int32 DamageAmount)
+float AMonster::TakeDamage(float DamageAmount, FDamageEvent const& DamageEvent, AController* EventInstigator, AActor* DamageCauser)
 {
-	CurrentHP -= DamageAmount;
+	if (DamageAmount <= 0.f || bIsDead)  // 이미 죽은 상태면 무시
+		return 0.f;
+
+	CurrentHP -= (int32)DamageAmount;
 	if (CurrentHP < 0) CurrentHP = 0;
 
-	// HP 변경 이벤트 발생 (위젯에 브로드캐스트)
+	if (HitMontage && !bIsDead)
+	{
+		PlayAnimMontage(HitMontage);
+	}
+
 	OnHpMonster.Broadcast((float)CurrentHP, (float)MaxHP);
 
-	if (CurrentHP <= 0)
+	if (CurrentHP <= 0 && !bIsDead)  // 죽었을 때만 OnDeath 호출
 	{
 		OnDeath();
+	}
+
+	return DamageAmount;
+}
+
+void AMonster::PerformAttack()
+{
+	if (!bCanAttack || bIsDead)
+		return;
+
+	AActor* TargetActor = UGameplayStatics::GetPlayerCharacter(GetWorld(), 0);
+
+	if (!TargetActor)
+		return;
+
+	float Distance = FVector::Dist(GetActorLocation(), TargetActor->GetActorLocation());
+
+	if (Distance <= AttackRange)  // 공격 거리 내면 공격
+	{
+		// 공격 로직 (데미지 전달 등) 여기에 구현
+		bCanAttack = false;
+
+		// 5초 후 공격 가능 상태로 복구
+		GetWorldTimerManager().SetTimer(AttackTimerHandle, this, &AMonster::ResetAttackCooldown, 5.f, false);
 	}
 }
 
 void AMonster::OnDeath()
 {
-	// 죽었다고 알림을 보냄 → Spawner/GameMode에서 바인딩 가능
+	bIsDead = true;
+	if (AAIController* AICon = Cast<AAIController>(GetController()))
+	{
+		AICon->StopMovement();
+		if (AICon->GetBrainComponent())
+		{
+			AICon->GetBrainComponent()->StopLogic("Dead");
+		}
+		UBlackboardComponent* BlackboardComp = AICon->GetBlackboardComponent();
+		if (BlackboardComp)
+		{
+			BlackboardComp->SetValueAsBool("IsDead", true);
+		}
+	}
+
+	if (APlayerCharacter* PlayerChar = Cast<APlayerCharacter>(UGameplayStatics::GetPlayerPawn(GetWorld(), 0)))
+	{
+		PlayerChar->AddUltGauge(UltGaugeReward);
+	}
+
+	GetMesh()->SetSimulatePhysics(true); // 물리 시뮬레이션 활성화
+	GetMesh()->SetCollisionProfileName(TEXT("Ragdoll_NoCamera"));
+	GetCharacterMovement()->DisableMovement();
+	GetWorldTimerManager().ClearTimer(AttackTimerHandle);
 	OnMonsterDeath.Broadcast(this);
 
-	// 1초 뒤 Destroy 처리
+	if (DeathMontage && GetMesh()->GetAnimInstance())
+	{
+		GetMesh()->SetAnimationMode(EAnimationMode::AnimationBlueprint);
+		GetMesh()->GetAnimInstance()->Montage_Play(DeathMontage);
+
+	}
+
 	GetWorldTimerManager().SetTimer(
 		DeathTimerHandle,
 		this,
@@ -67,46 +139,33 @@ void AMonster::DestroyMonster()
 	Destroy();
 }
 
-void AMonster::PerformAttack()
+void AMonster::StartAttack()
 {
-	if (!bCanAttack)
-		return;
+	if (bIsAttacking) return;
 
-	APlayerCharacter* PlayerPawn = Cast<APlayerCharacter>(UGameplayStatics::GetPlayerPawn(GetWorld(), 0));
-	if (!PlayerPawn)
-		return;
+	bIsAttacking = true;
 
-	float Distance = FVector::Dist(PlayerPawn->GetActorLocation(), GetActorLocation());
-
-	// 공격 범위 내에 있을 때만 공격 수행
-	if (Distance <= AttackRange)
+	if (AttackMontage && GetMesh()->GetAnimInstance())
 	{
-		// 데미지 적용 (플레이어에 데미지 전달)
-		////////////////UGameplayStatics::ApplyDamage(PlayerPawn, AttackPoint, GetController(), this, nullptr);
-		PlayerPawn->TakeDamage(AttackPoint);
-
-		// 공격 쿨타임 시작
-		bCanAttack = false;
-		GetWorldTimerManager().SetTimer(
-			AttackTimerHandle, this, &AMonster::ResetAttackCooldown, AttackCooldown, false);
-
-		// 공격 애니메이션 재생 등 여기서 추가 구현 가능
+		GetMesh()->GetAnimInstance()->Montage_Play(AttackMontage);
 	}
 }
+
+void AMonster::OnAttackMontageEnded(UAnimMontage* Montage, bool bInterrupted)
+{
+	if (Montage == AttackMontage)
+	{
+		bIsAttacking = false;
+		OnAttackEnded();  // 블루프린트에서 이동 재개 등 추가 처리할 수 있음
+	}
+}
+
+
 
  //Called every frame
 void AMonster::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
 
-	// 플레이어와 거리를 체크해 공격 범위 이내면 자동 공격 시도
-	PerformAttack();
-
 }
-//
-//// Called to bind functionality to input
-//void AMonster::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
-//{
-//	Super::SetupPlayerInputComponent(PlayerInputComponent);
-//
-//}
+

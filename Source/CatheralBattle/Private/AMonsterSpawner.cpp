@@ -32,6 +32,31 @@ FVector AAMonsterSpawner::GetRandomSpawnLocation() const
 	return SpawnCenter + Offset;
 }
 
+void AAMonsterSpawner::SetMaxMonsterCount(int32 Count)
+{
+	MaxMonsterCount = Count;
+}
+
+void AAMonsterSpawner::CullAllMonsters()
+{
+	// 뒤에서 앞으로 순회(인덱스 무너짐 방지)
+	for (int32 i = SpawnedMonsters.Num() - 1; i >= 0; --i)
+	{
+		AMonster* M = SpawnedMonsters[i];
+		if (IsValid(M))
+		{
+			// 사망 델리게이트 언바인드(예상치 못한 재호출 방지)
+			M->OnMonsterDeath.RemoveDynamic(this, &AAMonsterSpawner::OnMonsterDeath);
+
+			// 액터 파괴
+			M->Destroy();
+		}
+	}
+
+	// 내부 리스트 비우기
+	SpawnedMonsters.Empty();
+}
+
 void AAMonsterSpawner::SpawnMonsterAt(const FVector& Location)
 {
 	if (!MonsterClass) return;
@@ -42,18 +67,8 @@ void AAMonsterSpawner::SpawnMonsterAt(const FVector& Location)
 	if (NewMonster)
 	{
 		SpawnedMonsters.Add(NewMonster);
-
-		// AIController가 없으면 생성 후 몬스터 소유
-		AAIController* AIController = Cast<AAIController>(NewMonster->GetController());
-		if (!AIController)
-		{
-			AIController = GetWorld()->SpawnActor<AMonsterAIController>(AMonsterAIController::StaticClass());
-			if (AIController)
-				AIController->Possess(NewMonster);
-		}
-
-		// 몬스터 사망 이벤트 바인딩 대응하면 재생성 가능 (선택적)
-		// NewMonster->OnDeath.AddDynamic(this, &AAMonsterSpawner::OnMonsterDeath);
+		NewMonster->OnMonsterDeath.AddDynamic(this, &AAMonsterSpawner::OnMonsterDeath);
+		// AI 컨트롤러 등 추가 초기화
 	}
 }
 
@@ -62,8 +77,10 @@ void AAMonsterSpawner::OnMonsterDeath(AMonster* DeadMonster)
 	if (SpawnedMonsters.Contains(DeadMonster))
 	{
 		SpawnedMonsters.Remove(DeadMonster);
-
-		FVector RespawnLoc = GetRandomSpawnLocation();
-		SpawnMonsterAt(RespawnLoc);
+		if (bAllowRespawn)
+		{
+			FVector RespawnLoc = GetRandomSpawnLocation();
+			SpawnMonsterAt(RespawnLoc); // 몬스터 재소환
+		}
 	}
 }

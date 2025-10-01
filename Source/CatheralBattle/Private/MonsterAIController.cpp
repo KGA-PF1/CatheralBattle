@@ -18,6 +18,7 @@ void AMonsterAIController::BeginPlay()
 		APawn* myPawn = GetPawn();
 		if (myPawn != nullptr)
 			BBComp->SetValueAsVector(TEXT("SpawnLocation"), myPawn->GetActorLocation());
+
 	}
 }
 
@@ -31,16 +32,9 @@ void AMonsterAIController::Tick(float DeltaTime)
 	APawn* MyPawn = GetPawn();
 	if (!MyPawn) return;
 
-	float Dist = FVector::Dist(PlayerPawn->GetActorLocation(), MyPawn->GetActorLocation());
+	UBlackboardComponent* BBComp = GetBlackboardComponent();
+	BBComp->SetValueAsObject(TEXT("TargetActor"), PlayerPawn);
 
-	if (Dist > AcceptanceRadius)
-	{
-		MoveToActor(PlayerPawn, AcceptanceRadius);
-	}
-	else
-	{
-		StopMovement();
-	}
 }
 
 void AMonsterAIController::OnPossess(APawn* InPawn)
