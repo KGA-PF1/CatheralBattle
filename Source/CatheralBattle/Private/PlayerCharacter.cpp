@@ -811,7 +811,10 @@ void APlayerCharacter::MirrorAllTo(APlayerCharacter* Dest, bool bCopyCooldowns) 
 	if (!Dest) return;
 
 	// 스탯 통째 복사
+	
 	Dest->Stats = this->Stats; // Hp/MaxHp/AtkPoint/Speed/UltGauge/MaxUltGauge/AP 전부 포함
+	//this->Stats.Hp = this->GetMaxHp();z
+	Dest->Stats.Hp = Dest->GetMaxHp();
 
 	// 런타임 상태
 	Dest->SprintMultiplier = this->SprintMultiplier;

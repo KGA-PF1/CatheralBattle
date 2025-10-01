@@ -39,9 +39,9 @@ struct FPlayerStats //플레이어 스탯 구조체
 	GENERATED_BODY();
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	float Hp = 100.f;
+	float Hp = 150.f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
-	float MaxHp = 100.f;
+	float MaxHp = 150.f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
 	float AtkPoint = 10.f;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Stats")
