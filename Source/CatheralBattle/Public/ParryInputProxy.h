@@ -17,13 +17,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input") FKey PrimaryKey = EKeys::E;
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input") FKey SecondaryKey = EKeys::SpaceBar;
 
+	void CacheParryComponent();
+
 protected:
 	virtual void BeginPlay() override;
 
 private:
 	TWeakObjectPtr<UParryComponent> ParryComp;
 
-	void CacheParryComponent();
+	
 	void BindKeys();
 	void OnParryPressed();
 };
