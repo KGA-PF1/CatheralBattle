@@ -31,8 +31,8 @@ void ATimeAttackGameMode::BeginPlay()
 	// 아직 카운트다운은 멈춘 상태
 	TimeRemaining = InitialTime;
 
-	// 10초 뒤에 타임어택 시작
-	GetWorldTimerManager().SetTimer(StartDelayHandle, this, &ATimeAttackGameMode::StartTimer, 10.0f, false);
+	// 10초 뒤에 타임어택 시작rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+	GetWorldTimerManager().SetTimer(StartDelayHandle, this, &ATimeAttackGameMode::StartTimer, 3.0f, false);
 }
 
 void ATimeAttackGameMode::StartTimer()
