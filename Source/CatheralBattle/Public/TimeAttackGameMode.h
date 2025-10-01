@@ -21,7 +21,7 @@ protected:
 private:
 	// 시작 시간 (기본값 초)
 	UPROPERTY(EditAnywhere, Category = "Timer")
-	float InitialTime = 5.f;
+	float InitialTime = 60.0f;
 
 	// 남은 시간
 	float TimeRemaining;
