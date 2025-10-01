@@ -1,14 +1,14 @@
-<<<<<<< HEAD
-癤�// Fill out your copyright notice in the Description page of Project Settings.
+
+// Fill out your copyright notice in the Description page of Project Settings.
 
 
 #include "TimeAttackGameMode.h"
 
 // Fill out your copyright notice in the Description page of Project Settings.
-=======
+
 // TimeAttackGameMode.cpp
 
->>>>>>> origin/develop
+
 #include "TimeAttackGameMode.h"
 #include "TimerManager.h"
 #include "Kismet/GameplayStatics.h"
@@ -24,32 +24,26 @@ ATimeAttackGameMode::ATimeAttackGameMode()
 void ATimeAttackGameMode::BeginPlay()
 {
 	Super::BeginPlay();
-<<<<<<< HEAD
 	TimeRemaining = InitialTime;
-=======
 
 	// 아직 카운트다운은 멈춘 상태
 	TimeRemaining = InitialTime;
 
-	// 10초 뒤에 타임어택 시작rrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr
+	// 10초 뒤에 타임어택 시작
 	GetWorldTimerManager().SetTimer(StartDelayHandle, this, &ATimeAttackGameMode::StartTimer, 3.0f, false);
 }
 
 void ATimeAttackGameMode::StartTimer()
 {
 	bIsTimerActive = true; // 이제 카운트다운 시작
->>>>>>> origin/develop
 }
 
 void ATimeAttackGameMode::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-<<<<<<< HEAD
 	if (TimeRemaining > 0.f)
-=======
 
 	if (bIsTimerActive && TimeRemaining > 0.f)
->>>>>>> origin/develop
 	{
 		TimeRemaining -= DeltaSeconds;
 
