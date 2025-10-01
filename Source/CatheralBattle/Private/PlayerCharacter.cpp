@@ -53,15 +53,6 @@ APlayerCharacter::APlayerCharacter()
 	FollowCamera->bUsePawnControlRotation = false; // Camera does not rotate relative to arm
 
 	//무기 히트박스
-<<<<<<< HEAD
-	Sword = CreateDefaultSubobject<UBoxComponent>(TEXT("Sword"));
-	Sword->SetupAttachment(GetMesh());
-	Sword->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-	Sword->SetGenerateOverlapEvents(true);
-	Sword->SetCollisionObjectType(ECC_WorldDynamic);
-	Sword->SetCollisionResponseToAllChannels(ECR_Ignore);
-	Sword->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
-=======
 	Weapon = CreateDefaultSubobject<UBoxComponent>(TEXT("Sword"));
 	Weapon->SetupAttachment(GetMesh());
 	Weapon->InitBoxExtent(FVector(10, 10, 80));
@@ -72,7 +63,6 @@ APlayerCharacter::APlayerCharacter()
 	Weapon->SetGenerateOverlapEvents(true);
 
 	Stats.Hp = Stats.MaxHp;
->>>>>>> origin/develop
 }
 
 void APlayerCharacter::BeginPlay()
@@ -93,11 +83,7 @@ void APlayerCharacter::BeginPlay()
 	}
 
 	//무기 히트박스
-<<<<<<< HEAD
-	if (Sword && GetMesh())
-=======
 	if (Weapon && GetMesh())
->>>>>>> origin/develop
 	{
 		Weapon->AttachToComponent(
 			GetMesh(),
@@ -298,8 +284,8 @@ float APlayerCharacter::TakeDamage(float DamageAmount,
 	return ActualDamage;
 }
 
-void APlayerCharacter::TakeDamage(float Damage) 
-{ 
+void APlayerCharacter::TakeDamage(float Damage)
+{
 	if (bInvincibleByHit) return;
 	if (Damage <= 0) return;
 
@@ -407,7 +393,7 @@ void APlayerCharacter::OnDeath()
 	}
 
 
-	
+
 	//충돌 처리
 	GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 
@@ -485,7 +471,7 @@ bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput Inpu
 	//중복 시전 방지
 	if (UAnimInstance* Anim = GetMesh() ? GetMesh()->GetAnimInstance() : nullptr)
 	{
-		if (Anim->IsAnyMontagePlaying()) 
+		if (Anim->IsAnyMontagePlaying())
 		{
 			const bool bHitPlaying = (HitMontage && Anim->Montage_IsPlaying(HitMontage));
 			if (bHitPlaying)
@@ -514,11 +500,7 @@ bool APlayerCharacter::InternalUseSkill(const FSkillSpec& Spec, ESkillInput Inpu
 	}
 
 	//히트박스 모양 업데이트
-<<<<<<< HEAD
-	if (Sword && Spec.bUseWeaponHitBox)
-=======
 	if (Weapon && Spec.bUseWeaponHitBox)
->>>>>>> origin/develop
 	{
 		Weapon->SetBoxExtent(Spec.BoxExtent, true);
 		Weapon->SetRelativeLocation(Spec.BoxRelLocation);
@@ -601,15 +583,12 @@ void APlayerCharacter::PlaySkillMontage(const FSkillSpec& Spec)
 		float Len = Anim->Montage_Play(Spec.Montage);
 		if (Len > 0.f)
 		{
-<<<<<<< HEAD
-=======
 			ActiveSkillMontage = Spec.Montage;
 			bCanAttack = false;
 
 			bInvincibleBySkill = true;
 			//SetCanBeDamaged(false);
 
->>>>>>> origin/develop
 			//잠금 해제 이벤트 바인딩(끝, 중단)
 			FOnMontageBlendingOutStarted BlendOut;
 			BlendOut.BindUObject(this, &APlayerCharacter::OnMontageBlendOut);
@@ -808,7 +787,25 @@ void APlayerCharacter::UnLockMoveInput()
 	bMoveInputLocked = false;
 }
 
-<<<<<<< HEAD
+float APlayerCharacter::CalcAttackDamage() const
+{
+	//실제 데미지 계산
+	const FSkillSpec* Basic = SkillTable.Find(CurrentSkill);
+	const float Mult = Basic ? FMath::Max(1.f, Basic->DamageMultiplier) : 1.f;
+	return FMath::Max(0.f, Stats.AtkPoint * Mult);
+}
+
+float APlayerCharacter::CalcAttackRange() const
+{
+
+	switch (CurrentSkill)
+	{
+	case ESkillInput::Skill_Q: return QSkillRange;
+	case ESkillInput::Skill_E: return ESkillRange;
+	default: return 0.f;
+	}
+}
+
 void APlayerCharacter::MirrorAllTo(APlayerCharacter* Dest, bool bCopyCooldowns) const
 {
 	if (!Dest) return;
@@ -838,24 +835,3 @@ float APlayerCharacter::GetSkillDamage(ESkillInput Input) const
 	}
 	return 0.f;
 }
-=======
-float APlayerCharacter::CalcAttackDamage() const
-{
-	//실제 데미지 계산
-	const FSkillSpec* Basic = SkillTable.Find(CurrentSkill);
-	const float Mult = Basic ? FMath::Max(1.f, Basic->DamageMultiplier) : 1.f;
-	return FMath::Max(0.f, Stats.AtkPoint * Mult);
-}
-
-float APlayerCharacter::CalcAttackRange() const
-{
-
-	switch (CurrentSkill)
-	{
-	case ESkillInput::Skill_Q: return QSkillRange;
-	case ESkillInput::Skill_E: return ESkillRange;
-	default: return 0.f;
-	}
-}
-
->>>>>>> origin/develop
