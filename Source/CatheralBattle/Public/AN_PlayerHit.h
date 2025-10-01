@@ -17,4 +17,7 @@ public:
     virtual void Notify(USkeletalMeshComponent* MeshComp,
         UAnimSequenceBase* Animation,
         const FAnimNotifyEventReference& EventReference) override;
+
+    UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Camera")
+    TSubclassOf<UCameraShakeBase> HitStopShakeClass;
 };

@@ -93,26 +93,36 @@ void UParryComponent::ExpireArm()
 
 void UParryComponent::OnParryPressed()
 {
+	// ★ 0) 쿨다운 중이면 즉시 무시 (모션도 재생 안 함)
+	if (bParryOnCooldown) return;
+
+	// ★ 1) 이번 입력으로 쿨다운 시작
+	bParryOnCooldown = true;
+	GetWorld()->GetTimerManager().ClearTimer(TimerParryCooldown);
+	GetWorld()->GetTimerManager().SetTimer(
+		TimerParryCooldown,
+		this, &UParryComponent::ResetParryCooldown,
+		ParryCooldown, false);
+
 	const double Now = FPlatformTime::Seconds();
 	LastPressTime = Now;
 
-	// 모션은 항상 재생(성공/실패 공통 피드백)
+	// 2) 모션 재생(성공/실패 공통 피드백)
 	PlayParryMontage();
 
-	// 리커버리 중이면 판정 불가
+	// 3) 리커버리 중이면 판정 불가
 	if (bLocked) return;
 
-	// 창 안이면 성공
+	// 4) 창 안이면 성공
 	if (bArmed && Now <= WindowEndTime)
 	{
 		HandleParrySuccess();
 		return;
 	}
 
-	// 실패 → 리커버리 진입
+	// 5) 실패 → 리커버리 진입
 	BeginRecovery();
 }
-
 void UParryComponent::HandleParrySuccess()
 {
 	APlayerCharacter* PC = GetOwnerPlayer();
@@ -172,3 +182,7 @@ void UParryComponent::PlayParryMontage() const
 	}
 }
 
+void UParryComponent::ResetParryCooldown()
+{
+	bParryOnCooldown = false;
+}

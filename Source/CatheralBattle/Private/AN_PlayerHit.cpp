@@ -30,7 +30,32 @@ void UAN_PlayerHit::Notify(USkeletalMeshComponent* MeshComp,
             if (Damage > 0.f)
             {
                 Boss->ApplyDamageToBoss(Damage);
-                if (BM) BM->SpawnFloatingText(Boss, Damage);         // ★ 보스 머리 위 -데미지 팝업
+                if (BM) BM->SpawnFloatingText(Boss, Damage);
+
+                if (UWorld* World = Player->GetWorld())
+                {
+                    // ★ 히트스톱
+                    UGameplayStatics::SetGlobalTimeDilation(World, 0.2f);
+
+                    // ★ 카메라 쉐이크 (경로 대신 UPROPERTY로 할당된 BP 사용)
+                    if (HitStopShakeClass)
+                    {
+                        if (APlayerController* PC = UGameplayStatics::GetPlayerController(World, 0))
+                        {
+                            if (PC->PlayerCameraManager)
+                            {
+                                PC->PlayerCameraManager->StartCameraShake(HitStopShakeClass);
+                            }
+                        }
+                    }
+
+                    // 시간 복구
+                    FTimerHandle HS;
+                    World->GetTimerManager().SetTimer(HS, [World]()
+                        {
+                            UGameplayStatics::SetGlobalTimeDilation(World, 1.0f);
+                        }, 0.04f, false);
+                }
             }
         }
 
